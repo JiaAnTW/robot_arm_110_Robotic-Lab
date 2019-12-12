@@ -7,9 +7,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         super(MainWindow, self).__init__(parent=parent)
         self.setupUi(self)
         self.onBindingUi()
+        #7self.btn_go.click.connect(self.action)
 
+    
+    
     def onBindingUi(self):
         pass
+
 
 
 if __name__ == "__main__":

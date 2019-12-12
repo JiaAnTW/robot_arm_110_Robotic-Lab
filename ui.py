@@ -37,9 +37,11 @@ class Ui_Form(object):
         self.btn_go = QtWidgets.QPushButton(self.groupBox_4)
         self.btn_go.setGeometry(QtCore.QRect(50, 660, 191, 91))
         self.btn_go.setObjectName("btn_go")
+        self.btn_go.clicked.connect(self.action)   #get data
         self.btn_reset = QtWidgets.QPushButton(self.groupBox_4)
         self.btn_reset.setGeometry(QtCore.QRect(280, 660, 201, 91))
         self.btn_reset.setObjectName("btn_reset")
+        self.btn_reset.clicked.connect(self.reset) #reset
         self.verticalLayoutWidget_2 = QtWidgets.QWidget(self.groupBox_4)
         self.verticalLayoutWidget_2.setGeometry(QtCore.QRect(250, 30, 251, 601))
         self.verticalLayoutWidget_2.setObjectName("verticalLayoutWidget_2")
@@ -147,3 +149,22 @@ class Ui_Form(object):
         self.groupBox_2.setTitle(_translate("Form", "TextBrowser"))
         self.btn_update.setText(_translate("Form", "Update"))
 
+    def action(self): #get arm location
+        self.input_x.setText("testtest")
+        #self.input_y.setText(str)
+        #self.input_z..setText(str)
+        #self.input_r..setText(str)
+        #self.input_j1..setText(str)
+        #self.input_j2..setText(str)
+        #self.input_j3..setText(str)
+        #self.input_j4..setText(str)
+
+    def reset(self):
+        self.input_.setText("")
+        #self.input_y.setText("")
+        #self.input_z..setText("")
+        #self.input_r..setText("")
+        #self.input_j1..setText("")
+        #self.input_j2..setText("")
+        #self.input_j3..setText("")
+        #self.input_j4..setText("")    
