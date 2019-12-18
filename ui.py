@@ -7,8 +7,25 @@
 # WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+try:
+    from pyDobot import Dobot
+    except Exception as e:
+            print(e)
 
 class Ui_Form(object):
+    def __init__(self):
+        self.user_set_pos=(0,0,0,0,0,0,0,0)
+        self._connect_dobot(0)
+
+    def _connect_dobot(self,i):
+        try:
+            portArray=["ttyUSB0","ttyUSB01","ttyUSB2","ttyUSB3","ttyUSB4","ttyUSB5","ttyS0","ttyS1","ttyS2","ttyS3","ttyS4","ttyS5"]
+            self.device=Dobot(post=portArray[i],verbose=False)
+        except Exception as e:
+            print(e)
+            if(i<len(portArray)):
+                self._connect_dobot(i+1)
+
     def setupUi(self, Form):
         Form.setObjectName("Form")
         Form.resize(1884, 1218)
@@ -37,11 +54,15 @@ class Ui_Form(object):
         self.btn_go = QtWidgets.QPushButton(self.groupBox_4)
         self.btn_go.setGeometry(QtCore.QRect(50, 660, 191, 91))
         self.btn_go.setObjectName("btn_go")
+
         self.btn_go.clicked.connect(self.action)   #get data
+
         self.btn_reset = QtWidgets.QPushButton(self.groupBox_4)
         self.btn_reset.setGeometry(QtCore.QRect(280, 660, 201, 91))
         self.btn_reset.setObjectName("btn_reset")
+
         self.btn_reset.clicked.connect(self.reset) #reset
+
         self.verticalLayoutWidget_2 = QtWidgets.QWidget(self.groupBox_4)
         self.verticalLayoutWidget_2.setGeometry(QtCore.QRect(250, 30, 251, 601))
         self.verticalLayoutWidget_2.setObjectName("verticalLayoutWidget_2")
@@ -125,6 +146,8 @@ class Ui_Form(object):
         self.retranslateUi(Form)
         QtCore.QMetaObject.connectSlotsByName(Form)
 
+        self.reset() #讓所有input歸0
+
     def retranslateUi(self, Form):
         _translate = QtCore.QCoreApplication.translate
         Form.setWindowTitle(_translate("Form", "Form"))
@@ -150,21 +173,41 @@ class Ui_Form(object):
         self.btn_update.setText(_translate("Form", "Update"))
 
     def action(self): #get arm location
-        self.input_x.setText("testtest")
-        #self.input_y.setText(str)
-        #self.input_z..setText(str)
-        #self.input_r..setText(str)
-        #self.input_j1..setText(str)
-        #self.input_j2..setText(str)
-        #self.input_j3..setText(str)
-        #self.input_j4..setText(str)
+        self._set_user_set_pos()
+        (x, y, z, r, j1, j2, j3, j4) =self.user_set_pos
+        try: #call  pydobot
+            self.device.move_to(x, y, z, r, j1, j2, j3, j4 wait=True)
+        except Exception as e:
+            print("輸入格式錯誤")
+            print("錯誤訊息： "+str(e))
 
     def reset(self):
-        self.input_.setText("")
-        #self.input_y.setText("")
-        #self.input_z..setText("")
-        #self.input_r..setText("")
-        #self.input_j1..setText("")
-        #self.input_j2..setText("")
-        #self.input_j3..setText("")
-        #self.input_j4..setText("")    
+        self.input_x.setText("0")
+        self.input_y.setText("0")
+        self.input_z.setText("0")
+        self.input_r.setText("0")
+        self.input_j1.setText("0")
+        self.input_j2.setText("0")
+        self.input_j3.setText("0")
+        self.input_j4.setText("0")
+
+        self._set_user_set_pos()
+
+    def _set_user_set_pos(self): 
+        try:
+            self.user_set_pos=(float(self.input_x.text()),
+                                float(self.input_y.text()),
+                                float(self.input_z.text()),
+                                float(self.input_r.text()),
+                                float(self.input_j1.text()),
+                                float(self.input_j2.text()),
+                                float(self.input_j3.text()),
+                                float(self.input_j4.text()))
+        except Exception as e:
+            print("輸入格式錯誤")
+            print("錯誤訊息： "+str(e))  
+
+ 
+
+        
+
