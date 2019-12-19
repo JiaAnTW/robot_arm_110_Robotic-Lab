@@ -8,23 +8,29 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 try:
-    from pyDobot import Dobot
-    except Exception as e:
-            print(e)
+    from pydobot import Dobot
+except Exception as e:
+    print(e)
 
 class Ui_Form(object):
     def __init__(self):
         self.user_set_pos=(0,0,0,0,0,0,0,0)
+        print("開始自動尋找dobot所在的port\n")
         self._connect_dobot(0)
 
     def _connect_dobot(self,i):
         try:
             portArray=["ttyUSB0","ttyUSB01","ttyUSB2","ttyUSB3","ttyUSB4","ttyUSB5","ttyS0","ttyS1","ttyS2","ttyS3","ttyS4","ttyS5"]
-            self.device=Dobot(post=portArray[i],verbose=False)
+            self.device=Dobot(port=portArray[i],verbose=False)
+            print("連接成功")
         except Exception as e:
-            print(e)
-            if(i<len(portArray)):
+            print("無法在"+portArray[i]+"連接Dobot\n原因:"+str(e))
+	
+            if(i<len(portArray)-1):
+                print("沒關係的別驚慌,我會嘗試連接下一個port\n")
                 self._connect_dobot(i+1)
+            else:
+                print("連接失敗，請檢查是否有將dobot接上USB")
 
     def setupUi(self, Form):
         Form.setObjectName("Form")
@@ -176,7 +182,7 @@ class Ui_Form(object):
         self._set_user_set_pos()
         (x, y, z, r, j1, j2, j3, j4) =self.user_set_pos
         try: #call  pydobot
-            self.device.move_to(x, y, z, r, j1, j2, j3, j4 wait=True)
+            self.device.move_to(x, y, z, r, j1, j2, j3, j4, wait=True)
         except Exception as e:
             print("輸入格式錯誤")
             print("錯誤訊息： "+str(e))
