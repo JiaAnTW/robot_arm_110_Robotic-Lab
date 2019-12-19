@@ -20,7 +20,7 @@ class Ui_Form(object):
 
     def _connect_dobot(self,i):
         try:
-            portArray=["ttyUSB0","ttyUSB01","ttyUSB2","ttyUSB3","ttyUSB4","ttyUSB5","ttyS0","ttyS1","ttyS2","ttyS3","ttyS4","ttyS5"]
+            portArray=["/dev/ttyUSB0","/dev/ttyUSB01","/dev/ttyUSB2","/dev/ttyUSB3","/dev/ttyUSB4","/dev/ttyUSB5","/dev/ttyS0","/dev/ttyS1","/dev/ttyS2","/dev/ttyS3","/dev/ttyS4","/dev/ttyS5"]
             self.device=Dobot(port=portArray[i],verbose=False)
             print("連接成功")
         except Exception as e:
@@ -77,6 +77,7 @@ class Ui_Form(object):
         self.verticalLayout_2.setObjectName("verticalLayout_2")
         self.input_x = QtWidgets.QLineEdit(self.verticalLayoutWidget_2)
         self.input_x.setObjectName("input_x")
+        self.input_x.setFixedHeight(20)
         self.verticalLayout_2.addWidget(self.input_x)
         self.input_y = QtWidgets.QLineEdit(self.verticalLayoutWidget_2)
         self.input_y.setObjectName("input_y")
@@ -157,15 +158,18 @@ class Ui_Form(object):
         self.retranslateUi(Form)
         QtCore.QMetaObject.connectSlotsByName(Form)
 
-        self.reset() #讓所有input歸0
+        #self.reset() #讓所有input歸0
 
     def get_pos(self):
+        _translate = QtCore.QCoreApplication.translate
         try:
-            pos=self.device.pose
+            pos=self.device.pose()
+            self.user_set_pos=pos
+            print(pos)
         except Exception as e:
             pos=(0,0,0,0,0,0,0,0)
         for i in range(8):
-            self.pos_display[i].setText(_translate("Form", str(pos[i])))
+            self.pos_display[i].setText(_translate("Form", str(round(pos[i],5))))
 
     def retranslateUi(self, Form):
         _translate = QtCore.QCoreApplication.translate
@@ -191,17 +195,25 @@ class Ui_Form(object):
         self.groupBox_2.setTitle(_translate("Form", "TextBrowser"))
         self.btn_update.setText(_translate("Form", "Update"))
         self.get_pos()
+        self.input_x.setText(str(round(self.user_set_pos[0],5)))
+        self.input_y.setText(str(round(self.user_set_pos[1],5)))
+        self.input_z.setText(str(round(self.user_set_pos[2],5)))
+        self.input_r.setText(str(round(self.user_set_pos[3],5)))
+        self.input_j1.setText(str(round(self.user_set_pos[4],5)))
+        self.input_j2.setText(str(round(self.user_set_pos[5],5)))
+        self.input_j3.setText(str(round(self.user_set_pos[6],5)))
+        self.input_j4.setText(str(round(self.user_set_pos[7],5)))
 
     def action(self): #get arm location
         self._set_user_set_pos()
         (x, y, z, r, j1, j2, j3, j4) =self.user_set_pos
         try: #call  pydobot
-            self.device.move_to(x, y, z, r, j1, j2, j3, j4, wait=True)
-            i=0
-            while(i<350):
-                time.sleep(0.1)
-                self.get_pos()
-                i=i+1
+            self.device.move_to(x, y, z, r, wait=True)
+            #i=0
+            #while(i<15000):
+            time.sleep(2)
+            self.get_pos()
+            #    i=i+1
         except Exception as e:
             print("輸入格式錯誤")
             print("錯誤訊息： "+str(e))
