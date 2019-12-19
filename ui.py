@@ -77,7 +77,7 @@ class Ui_Form(object):
         self.verticalLayout_2.setObjectName("verticalLayout_2")
         self.input_x = QtWidgets.QLineEdit(self.verticalLayoutWidget_2)
         self.input_x.setObjectName("input_x")
-        self.input_x.setFixedHeight(20)
+        #self.input_x.setFixedHeight(20)
         self.verticalLayout_2.addWidget(self.input_x)
         self.input_y = QtWidgets.QLineEdit(self.verticalLayoutWidget_2)
         self.input_y.setObjectName("input_y")
