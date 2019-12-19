@@ -5,7 +5,7 @@
 # Created by: PyQt5 UI code generator 5.9.2
 #
 # WARNING! All changes made in this file will be lost!
-
+import time
 from PyQt5 import QtCore, QtGui, QtWidgets
 try:
     from pydobot import Dobot
@@ -99,29 +99,34 @@ class Ui_Form(object):
         self.input_j4 = QtWidgets.QLineEdit(self.verticalLayoutWidget_2)
         self.input_j4.setObjectName("input_j4")
         self.verticalLayout_2.addWidget(self.input_j4)
+        self.pos_display=[]
+        for i in range(8):
+            self.pos_display.append(QtWidgets.QLabel(self.groupBox_4))
+            self.pos_display[i].setGeometry(QtCore.QRect(180, 60+i*70, 129, 32))
+            self.pos_display[i].setObjectName("label_"+str(i)+"_1")
         self.label = QtWidgets.QLabel(self.groupBox_4)
-        self.label.setGeometry(QtCore.QRect(120, 50, 129, 32))
+        self.label.setGeometry(QtCore.QRect(60, 50, 129, 32))
         self.label.setObjectName("label")
         self.label_2 = QtWidgets.QLabel(self.groupBox_4)
-        self.label_2.setGeometry(QtCore.QRect(120, 120, 129, 32))
+        self.label_2.setGeometry(QtCore.QRect(60, 120, 129, 32))
         self.label_2.setObjectName("label_2")
         self.label_3 = QtWidgets.QLabel(self.groupBox_4)
-        self.label_3.setGeometry(QtCore.QRect(120, 200, 129, 32))
+        self.label_3.setGeometry(QtCore.QRect(60, 200, 129, 32))
         self.label_3.setObjectName("label_3")
         self.label_4 = QtWidgets.QLabel(self.groupBox_4)
-        self.label_4.setGeometry(QtCore.QRect(120, 270, 129, 32))
+        self.label_4.setGeometry(QtCore.QRect(60, 270, 129, 32))
         self.label_4.setObjectName("label_4")
         self.label_5 = QtWidgets.QLabel(self.groupBox_4)
-        self.label_5.setGeometry(QtCore.QRect(120, 340, 129, 32))
+        self.label_5.setGeometry(QtCore.QRect(60, 340, 129, 32))
         self.label_5.setObjectName("label_5")
         self.label_6 = QtWidgets.QLabel(self.groupBox_4)
-        self.label_6.setGeometry(QtCore.QRect(120, 410, 129, 32))
+        self.label_6.setGeometry(QtCore.QRect(60, 410, 129, 32))
         self.label_6.setObjectName("label_6")
         self.label_7 = QtWidgets.QLabel(self.groupBox_4)
-        self.label_7.setGeometry(QtCore.QRect(120, 490, 129, 32))
+        self.label_7.setGeometry(QtCore.QRect(60, 490, 129, 32))
         self.label_7.setObjectName("label_7")
         self.label_8 = QtWidgets.QLabel(self.groupBox_4)
-        self.label_8.setGeometry(QtCore.QRect(120, 570, 129, 32))
+        self.label_8.setGeometry(QtCore.QRect(60, 570, 129, 32))
         self.label_8.setObjectName("label_8")
         self.label_11 = QtWidgets.QLabel(self.groupBox_3)
         self.label_11.setGeometry(QtCore.QRect(30, 870, 201, 71))
@@ -154,6 +159,14 @@ class Ui_Form(object):
 
         self.reset() #讓所有input歸0
 
+    def get_pos(self):
+        try:
+            pos=self.device.pose
+        except Exception as e:
+            pos=(0,0,0,0,0,0,0,0)
+        for i in range(8):
+            self.pos_display[i].setText(_translate("Form", str(pos[i])))
+
     def retranslateUi(self, Form):
         _translate = QtCore.QCoreApplication.translate
         Form.setWindowTitle(_translate("Form", "Form"))
@@ -177,12 +190,18 @@ class Ui_Form(object):
         self.btn_close.setText(_translate("Form", "CLOSE"))
         self.groupBox_2.setTitle(_translate("Form", "TextBrowser"))
         self.btn_update.setText(_translate("Form", "Update"))
+        self.get_pos()
 
     def action(self): #get arm location
         self._set_user_set_pos()
         (x, y, z, r, j1, j2, j3, j4) =self.user_set_pos
         try: #call  pydobot
             self.device.move_to(x, y, z, r, j1, j2, j3, j4, wait=True)
+            i=0
+            while(i<350):
+                time.sleep(0.1)
+                self.get_pos()
+                i=i+1
         except Exception as e:
             print("輸入格式錯誤")
             print("錯誤訊息： "+str(e))
