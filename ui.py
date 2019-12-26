@@ -1,250 +1,108 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'Project_ui.ui'
+# Form implementation generated from reading ui file 'Project.ui'
 #
-# Created by: PyQt5 UI code generator 5.9.2
+# Created by: PyQt5 UI code generator 5.5.1
 #
 # WARNING! All changes made in this file will be lost!
-import time
+
 from PyQt5 import QtCore, QtGui, QtWidgets
-try:
-    from pydobot import Dobot
-except Exception as e:
-    print(e)
 
 class Ui_Form(object):
-    def __init__(self):
-        self.user_set_pos=(0,0,0,0,0,0,0,0)
-        print("開始自動尋找dobot所在的port\n")
-        self._connect_dobot(0)
-
-    def _connect_dobot(self,i):
-        try:
-            portArray=["/dev/ttyUSB0","/dev/ttyUSB01","/dev/ttyUSB2","/dev/ttyUSB3","/dev/ttyUSB4","/dev/ttyUSB5","/dev/ttyS0","/dev/ttyS1","/dev/ttyS2","/dev/ttyS3","/dev/ttyS4","/dev/ttyS5"]
-            self.device=Dobot(port=portArray[i],verbose=False)
-            print("連接成功")
-        except Exception as e:
-            print("無法在"+portArray[i]+"連接Dobot\n原因:"+str(e))
-	
-            if(i<len(portArray)-1):
-                print("沒關係的別驚慌,我會嘗試連接下一個port\n")
-                self._connect_dobot(i+1)
-            else:
-                print("連接失敗，請檢查是否有將dobot接上USB")
-
     def setupUi(self, Form):
         Form.setObjectName("Form")
-        Form.resize(1884, 1218)
-        self.groupBox = QtWidgets.QGroupBox(Form)
-        self.groupBox.setGeometry(QtCore.QRect(10, 20, 751, 1191))
-        self.groupBox.setObjectName("groupBox")
-        self.verticalLayoutWidget = QtWidgets.QWidget(self.groupBox)
-        self.verticalLayoutWidget.setGeometry(QtCore.QRect(0, 20, 751, 1161))
-        self.verticalLayoutWidget.setObjectName("verticalLayoutWidget")
-        self.verticalLayout = QtWidgets.QVBoxLayout(self.verticalLayoutWidget)
-        self.verticalLayout.setContentsMargins(0, 0, 0, 0)
-        self.verticalLayout.setObjectName("verticalLayout")
-        self.label_rgb = QtWidgets.QLabel(self.verticalLayoutWidget)
-        self.label_rgb.setObjectName("label_rgb")
-        self.verticalLayout.addWidget(self.label_rgb)
-        self.label_d = QtWidgets.QLabel(self.verticalLayoutWidget)
-        self.label_d.setObjectName("label_d")
-        self.verticalLayout.addWidget(self.label_d)
-        self.groupBox_3 = QtWidgets.QGroupBox(Form)
-        self.groupBox_3.setGeometry(QtCore.QRect(790, 20, 551, 1171))
-        self.groupBox_3.setObjectName("groupBox_3")
-        self.groupBox_4 = QtWidgets.QGroupBox(self.groupBox_3)
-        self.groupBox_4.setGeometry(QtCore.QRect(-10, 30, 531, 771))
+        Form.resize(1062, 680)
+        self.groupBox_4 = QtWidgets.QGroupBox(Form)
+        self.groupBox_4.setGeometry(QtCore.QRect(530, 40, 451, 441))
         self.groupBox_4.setTitle("")
         self.groupBox_4.setObjectName("groupBox_4")
         self.btn_go = QtWidgets.QPushButton(self.groupBox_4)
-        self.btn_go.setGeometry(QtCore.QRect(50, 660, 191, 91))
+        self.btn_go.setGeometry(QtCore.QRect(30, 360, 151, 61))
         self.btn_go.setObjectName("btn_go")
-
-        self.btn_go.clicked.connect(self.action)   #get data
-
         self.btn_reset = QtWidgets.QPushButton(self.groupBox_4)
-        self.btn_reset.setGeometry(QtCore.QRect(280, 660, 201, 91))
+        self.btn_reset.setGeometry(QtCore.QRect(190, 360, 121, 61))
         self.btn_reset.setObjectName("btn_reset")
-
-        self.btn_reset.clicked.connect(self.reset) #reset
-
-        self.verticalLayoutWidget_2 = QtWidgets.QWidget(self.groupBox_4)
-        self.verticalLayoutWidget_2.setGeometry(QtCore.QRect(250, 30, 251, 601))
-        self.verticalLayoutWidget_2.setObjectName("verticalLayoutWidget_2")
-        self.verticalLayout_2 = QtWidgets.QVBoxLayout(self.verticalLayoutWidget_2)
-        self.verticalLayout_2.setContentsMargins(0, 0, 0, 0)
-        self.verticalLayout_2.setObjectName("verticalLayout_2")
-        self.input_x = QtWidgets.QLineEdit(self.verticalLayoutWidget_2)
-        self.input_x.setObjectName("input_x")
-        #self.input_x.setFixedHeight(20)
-        self.verticalLayout_2.addWidget(self.input_x)
-        self.input_y = QtWidgets.QLineEdit(self.verticalLayoutWidget_2)
-        self.input_y.setObjectName("input_y")
-        self.verticalLayout_2.addWidget(self.input_y)
-        self.input_z = QtWidgets.QLineEdit(self.verticalLayoutWidget_2)
-        self.input_z.setObjectName("input_z")
-        self.verticalLayout_2.addWidget(self.input_z)
-        self.input_r = QtWidgets.QLineEdit(self.verticalLayoutWidget_2)
-        self.input_r.setObjectName("input_r")
-        self.verticalLayout_2.addWidget(self.input_r)
-        self.input_j1 = QtWidgets.QLineEdit(self.verticalLayoutWidget_2)
-        self.input_j1.setObjectName("input_j1")
-        self.verticalLayout_2.addWidget(self.input_j1)
-        self.input_j2 = QtWidgets.QLineEdit(self.verticalLayoutWidget_2)
-        self.input_j2.setObjectName("input_j2")
-        self.verticalLayout_2.addWidget(self.input_j2)
-        self.input_j3 = QtWidgets.QLineEdit(self.verticalLayoutWidget_2)
-        self.input_j3.setObjectName("input_j3")
-        self.verticalLayout_2.addWidget(self.input_j3)
-        self.input_j4 = QtWidgets.QLineEdit(self.verticalLayoutWidget_2)
-        self.input_j4.setObjectName("input_j4")
-        self.verticalLayout_2.addWidget(self.input_j4)
-        self.pos_display=[]
-        for i in range(8):
-            self.pos_display.append(QtWidgets.QLabel(self.groupBox_4))
-            self.pos_display[i].setGeometry(QtCore.QRect(180, 60+i*70, 129, 32))
-            self.pos_display[i].setObjectName("label_"+str(i)+"_1")
         self.label = QtWidgets.QLabel(self.groupBox_4)
-        self.label.setGeometry(QtCore.QRect(60, 50, 129, 32))
+        self.label.setGeometry(QtCore.QRect(50, 40, 41, 32))
         self.label.setObjectName("label")
         self.label_2 = QtWidgets.QLabel(self.groupBox_4)
-        self.label_2.setGeometry(QtCore.QRect(60, 120, 129, 32))
+        self.label_2.setGeometry(QtCore.QRect(50, 100, 51, 32))
         self.label_2.setObjectName("label_2")
         self.label_3 = QtWidgets.QLabel(self.groupBox_4)
-        self.label_3.setGeometry(QtCore.QRect(60, 200, 129, 32))
+        self.label_3.setGeometry(QtCore.QRect(50, 160, 51, 32))
         self.label_3.setObjectName("label_3")
         self.label_4 = QtWidgets.QLabel(self.groupBox_4)
-        self.label_4.setGeometry(QtCore.QRect(60, 270, 129, 32))
+        self.label_4.setGeometry(QtCore.QRect(50, 210, 51, 32))
         self.label_4.setObjectName("label_4")
+        self.lineEdit_1 = QtWidgets.QLineEdit(self.groupBox_4)
+        self.lineEdit_1.setGeometry(QtCore.QRect(300, 30, 113, 41))
+        self.lineEdit_1.setObjectName("lineEdit_1")
+        self.lineEdit_2 = QtWidgets.QLineEdit(self.groupBox_4)
+        self.lineEdit_2.setGeometry(QtCore.QRect(300, 90, 113, 41))
+        self.lineEdit_2.setObjectName("lineEdit_2")
+        self.lineEdit_3 = QtWidgets.QLineEdit(self.groupBox_4)
+        self.lineEdit_3.setGeometry(QtCore.QRect(300, 150, 113, 41))
+        self.lineEdit_3.setObjectName("lineEdit_3")
+        self.lineEdit_4 = QtWidgets.QLineEdit(self.groupBox_4)
+        self.lineEdit_4.setGeometry(QtCore.QRect(300, 210, 113, 41))
+        self.lineEdit_4.setObjectName("lineEdit_4")
+        self.label_1 = QtWidgets.QLabel(self.groupBox_4)
+        self.label_1.setGeometry(QtCore.QRect(110, 40, 131, 41))
+        self.label_1.setObjectName("label_1")
         self.label_5 = QtWidgets.QLabel(self.groupBox_4)
-        self.label_5.setGeometry(QtCore.QRect(60, 340, 129, 32))
+        self.label_5.setGeometry(QtCore.QRect(110, 100, 131, 41))
         self.label_5.setObjectName("label_5")
         self.label_6 = QtWidgets.QLabel(self.groupBox_4)
-        self.label_6.setGeometry(QtCore.QRect(60, 410, 129, 32))
+        self.label_6.setGeometry(QtCore.QRect(110, 150, 131, 41))
         self.label_6.setObjectName("label_6")
         self.label_7 = QtWidgets.QLabel(self.groupBox_4)
-        self.label_7.setGeometry(QtCore.QRect(60, 490, 129, 32))
+        self.label_7.setGeometry(QtCore.QRect(110, 200, 131, 41))
         self.label_7.setObjectName("label_7")
-        self.label_8 = QtWidgets.QLabel(self.groupBox_4)
-        self.label_8.setGeometry(QtCore.QRect(60, 570, 129, 32))
-        self.label_8.setObjectName("label_8")
-        self.label_11 = QtWidgets.QLabel(self.groupBox_3)
-        self.label_11.setGeometry(QtCore.QRect(30, 870, 201, 71))
-        self.label_11.setObjectName("label_11")
-        self.btn_stop = QtWidgets.QPushButton(self.groupBox_3)
-        self.btn_stop.setGeometry(QtCore.QRect(20, 1000, 151, 91))
-        self.btn_stop.setObjectName("btn_stop")
-        self.btn_open = QtWidgets.QPushButton(self.groupBox_3)
-        self.btn_open.setGeometry(QtCore.QRect(200, 1000, 151, 91))
-        self.btn_open.setObjectName("btn_open")
-        self.btn_close = QtWidgets.QPushButton(self.groupBox_3)
-        self.btn_close.setGeometry(QtCore.QRect(380, 1000, 151, 91))
+        self.comboBox = QtWidgets.QComboBox(self.groupBox_4)
+        self.comboBox.setGeometry(QtCore.QRect(50, 280, 131, 51))
+        self.comboBox.setObjectName("comboBox")
+        self.lineEdit = QtWidgets.QLineEdit(self.groupBox_4)
+        self.lineEdit.setGeometry(QtCore.QRect(300, 290, 113, 31))
+        self.lineEdit.setObjectName("lineEdit")
+        self.label_9 = QtWidgets.QLabel(self.groupBox_4)
+        self.label_9.setGeometry(QtCore.QRect(200, 290, 101, 31))
+        self.label_9.setObjectName("label_9")
+        self.checkBox = QtWidgets.QCheckBox(self.groupBox_4)
+        self.checkBox.setGeometry(QtCore.QRect(346, 370, 91, 31))
+        self.checkBox.setObjectName("checkBox")
+        self.btn_close = QtWidgets.QPushButton(Form)
+        self.btn_close.setGeometry(QtCore.QRect(870, 550, 151, 91))
         self.btn_close.setObjectName("btn_close")
-        self.groupBox_2 = QtWidgets.QGroupBox(Form)
-        self.groupBox_2.setGeometry(QtCore.QRect(1350, 20, 531, 1181))
-        self.groupBox_2.setObjectName("groupBox_2")
-        self.text_output = QtWidgets.QTextBrowser(self.groupBox_2)
-        self.text_output.setGeometry(QtCore.QRect(20, 190, 511, 971))
-        self.text_output.setObjectName("text_output")
-        self.btn_update = QtWidgets.QPushButton(self.groupBox_2)
-        self.btn_update.setGeometry(QtCore.QRect(20, 70, 191, 101))
-        self.btn_update.setObjectName("btn_update")
-        self.groupBox.raise_()
-        self.groupBox_3.raise_()
-        self.groupBox_2.raise_()
-        self.text_output.raise_()
+        self.btn_open = QtWidgets.QPushButton(Form)
+        self.btn_open.setGeometry(QtCore.QRect(710, 550, 151, 91))
+        self.btn_open.setObjectName("btn_open")
+        self.btn_stop = QtWidgets.QPushButton(Form)
+        self.btn_stop.setGeometry(QtCore.QRect(530, 550, 151, 91))
+        self.btn_stop.setObjectName("btn_stop")
+        self.label_8 = QtWidgets.QLabel(Form)
+        self.label_8.setGeometry(QtCore.QRect(20, 40, 471, 431))
+        self.label_8.setObjectName("label_8")
 
         self.retranslateUi(Form)
         QtCore.QMetaObject.connectSlotsByName(Form)
 
-        #self.reset() #讓所有input歸0
-
-    def get_pos(self):
-        _translate = QtCore.QCoreApplication.translate
-        try:
-            pos=self.device.pose()
-            self.user_set_pos=pos
-            print(pos)
-        except Exception as e:
-            pos=(0,0,0,0,0,0,0,0)
-        for i in range(8):
-            self.pos_display[i].setText(_translate("Form", str(round(pos[i],5))))
-
     def retranslateUi(self, Form):
         _translate = QtCore.QCoreApplication.translate
         Form.setWindowTitle(_translate("Form", "Form"))
-        self.groupBox.setTitle(_translate("Form", "RGB D "))
-        self.label_rgb.setText(_translate("Form", "TextLabel"))
-        self.label_d.setText(_translate("Form", "TextLabel"))
-        self.groupBox_3.setTitle(_translate("Form", "Control"))
-        self.btn_go.setText(_translate("Form", "Go"))
-        self.btn_reset.setText(_translate("Form", "ReSet"))
+        self.btn_go.setText(_translate("Form", "new"))
+        self.btn_reset.setText(_translate("Form", "Go"))
         self.label.setText(_translate("Form", "X"))
         self.label_2.setText(_translate("Form", "Y"))
         self.label_3.setText(_translate("Form", "Z"))
         self.label_4.setText(_translate("Form", "R"))
-        self.label_5.setText(_translate("Form", "Joint 1"))
-        self.label_6.setText(_translate("Form", "Joint 2"))
-        self.label_7.setText(_translate("Form", "Joint 3"))
-        self.label_8.setText(_translate("Form", "Joint 4"))
-        self.label_11.setText(_translate("Form", "Grip Control"))
-        self.btn_stop.setText(_translate("Form", "STOP"))
-        self.btn_open.setText(_translate("Form", "OPEN"))
+        self.label_1.setText(_translate("Form", "TextLabel"))
+        self.label_5.setText(_translate("Form", "TextLabel"))
+        self.label_6.setText(_translate("Form", "TextLabel"))
+        self.label_7.setText(_translate("Form", "TextLabel"))
+        self.label_9.setText(_translate("Form", "time / point"))
+        self.checkBox.setText(_translate("Form", "校正"))
         self.btn_close.setText(_translate("Form", "CLOSE"))
-        self.groupBox_2.setTitle(_translate("Form", "TextBrowser"))
-        self.btn_update.setText(_translate("Form", "Update"))
-        self.get_pos()
-        self.input_x.setText(str(round(self.user_set_pos[0],5)))
-        self.input_y.setText(str(round(self.user_set_pos[1],5)))
-        self.input_z.setText(str(round(self.user_set_pos[2],5)))
-        self.input_r.setText(str(round(self.user_set_pos[3],5)))
-        self.input_j1.setText(str(round(self.user_set_pos[4],5)))
-        self.input_j2.setText(str(round(self.user_set_pos[5],5)))
-        self.input_j3.setText(str(round(self.user_set_pos[6],5)))
-        self.input_j4.setText(str(round(self.user_set_pos[7],5)))
-
-    def action(self): #get arm location
-        self._set_user_set_pos()
-        (x, y, z, r, j1, j2, j3, j4) =self.user_set_pos
-        try: #call  pydobot
-            self.device.move_to(x, y, z, r, wait=True)
-            #i=0
-            #while(i<15000):
-            time.sleep(2)
-            self.get_pos()
-            #    i=i+1
-        except Exception as e:
-            print("輸入格式錯誤")
-            print("錯誤訊息： "+str(e))
-
-    def reset(self):
-        self.input_x.setText("0")
-        self.input_y.setText("0")
-        self.input_z.setText("0")
-        self.input_r.setText("0")
-        self.input_j1.setText("0")
-        self.input_j2.setText("0")
-        self.input_j3.setText("0")
-        self.input_j4.setText("0")
-
-        self._set_user_set_pos()
-
-    def _set_user_set_pos(self): 
-        try:
-            self.user_set_pos=(float(self.input_x.text()),
-                                float(self.input_y.text()),
-                                float(self.input_z.text()),
-                                float(self.input_r.text()),
-                                float(self.input_j1.text()),
-                                float(self.input_j2.text()),
-                                float(self.input_j3.text()),
-                                float(self.input_j4.text()))
-        except Exception as e:
-            print("輸入格式錯誤")
-            print("錯誤訊息： "+str(e))  
-
- 
-
-        
+        self.btn_open.setText(_translate("Form", "OPEN"))
+        self.btn_stop.setText(_translate("Form", "STOP"))
+        self.label_8.setText(_translate("Form", "TextLabel"))
 
