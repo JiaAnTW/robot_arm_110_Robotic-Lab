@@ -5,13 +5,14 @@ import time
 import pyrealsense2 as rs
 import numpy as np
 import cv2
+import cv2
 from PyQt5.QtCore import QThread,pyqtSignal
 from PyQt5.QtGui import QPalette, QBrush, QPixmap
 
  # enter s 
 
 class MyThread(QThread):
-    send = pyqtSigna(QPixmap)
+    send = pyqtSignal(QPixmap)
     def __init__(self, parent=None):
         QThread.__init__(self)
        # super().__init__(parent=parent)    
