@@ -1,19 +1,57 @@
 from ui import *
 import sys
+sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages') #解決安裝ROS 造成import opencv 出現error的問題
+
 import time
 from PyQt5.QtWidgets import QApplication, QMainWindow
+from PyQt5.QtGui import QPixmap, QImage 
+from PyQt5.QtCore import QThread, pyqtSignal, Qt
+
 try:
     from pydobot import Dobot
 except Exception as e:
     print(e)
+import cv2
+import pyrealsense2 as rs
+import numpy as np
 
+
+
+
+###
+class Thread(QThread):
+    changePixmap = pyqtSignal(QtGui.QImage)
+
+    def run(self):
+        self.pipeline = rs.pipeline()
+        self.config = rs.config()
+        #config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 30)
+        self.config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
+
+        self.pipeline.start(self.config)
+        while True:
+            frames = self.pipeline.wait_for_frames()
+            color_frame = frames.get_color_frame()
+            if  not color_frame:
+                continue
+
+            color_image = np.asanyarray(color_frame.get_data())
+            h, w, ch = color_image.shape
+            bytesPerLine = ch * w
+            
+            cv2.cvtColor(color_image, cv2.COLOR_RGB2BGR, color_image)
+            #cv2.COLOR_RGB2BGR
+                
+            convertToQtFormat = QtGui.QImage(color_image.data, w, h, bytesPerLine, QtGui.QImage.Format_RGB888)
+            p = convertToQtFormat.scaled(1280, 720, Qt.KeepAspectRatio)
+            self.changePixmap.emit(p)
+
+####
 
 class MainWindow(QtWidgets.QMainWindow, Ui_Form):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent=parent)
         self.setupUi(self)
-        self._test_thread = MyThread()
-        self._test_thread.send.connect(self.display)
         self.onBindingUi()
         self.user_set_pos=[(0,0,0,0)]
         print("開始自動尋找dobot所在的port\n")
@@ -36,6 +74,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
             else:
                 print("連接失敗，請檢查是否有將dobot接上USB")
 
+    @QtCore.pyqtSlot(QtGui.QImage) 
+    def setImage(self, image):
+        self.label_8.setPixmap(QPixmap.fromImage(image))
+
+
     def _init_ui_connect(self):
         _translate = QtCore.QCoreApplication.translate
         self.btn_go.clicked.connect(self._set_user_set_pos)   #get data
@@ -48,6 +91,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         self.lineEdit_4.textEdited.connect(self.set_r)
         self.comboBox.currentIndexChanged.connect(self.switch_point)
         self.lineEdit.setText(_translate("Form", str(2)))
+
+
+        self.label_8.resize(1280,720)
+
+        th = Thread(self)
+        th.changePixmap.connect(self.setImage)
+        th.start()
     
     def switch_point(self,index):
         try:
