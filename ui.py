@@ -79,7 +79,7 @@ class Ui_Form(object):
         self.btn_stop = QtWidgets.QPushButton(Form)
         self.btn_stop.setGeometry(QtCore.QRect(530, 550, 151, 91))
         self.btn_stop.setObjectName("btn_stop")
-        self.label_8 = QtWidgets.QLabel(Form)
+        self.label_8 = QtWidgets.QLabel(Form)      #show image
         self.label_8.setGeometry(QtCore.QRect(20, 40, 471, 431))
         self.label_8.setObjectName("label_8")
 
