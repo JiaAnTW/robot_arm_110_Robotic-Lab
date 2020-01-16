@@ -8,9 +8,9 @@ import numpy as np
 import cv2 
 import numpy as np 
 import matplotlib.pyplot as plt
-img = cv2.imread('./ocr_data/152.jpg')
+img = cv2.imread('./ocr_data/167.jpg')
 print(img.shape)
-img=img[600:1477,0:1100]
+#img=img[600:1477,0:1100]
 img1 = np.float32(img)
 
 # k-means
@@ -47,7 +47,6 @@ corners = np.int0(corners)
 # corner
 editBoxX=[]
 editBoxY=[]
-
 for corner in corners:
     x,y = corner.ravel()
     editBoxX.append(x)
@@ -56,13 +55,60 @@ for corner in corners:
     #cv2.circle(img,(x,y),3,255,-1)
     cv2.circle(res2,(x,y),3,255,-1)
 cv2.imshow('Corner',res2)
+targetBox=[]
 
-thresh2=thresh2[min(editBoxY):max(editBoxY),min(editBoxX):max(editBoxX)]
-image = Image.fromarray(thresh2)
-image.show() 
+for i in range(len(editBoxX)):
+    for j in range(i+1,len(editBoxX)):
+        addBox={}
+        for k in range(j+1,len(editBoxX)):
+            directA={"x":editBoxX[i]-editBoxX[j],"y":editBoxY[i]-editBoxY[j]}
+            directB={"x":editBoxX[i]-editBoxX[k],"y":editBoxY[i]-editBoxY[k]}
+            innerProduct=directA["x"]*directB["x"]+directA["y"]*directB["y"]
+            lengthA=pow(directA["x"],2)+pow(directA["y"],2)
+            lengthB=pow(directB["x"],2)+pow(directB["y"],2)
+            if (innerProduct<lengthA*lengthB*0.034 and innerProduct>lengthA*lengthB*0.034*-1) and (lengthA/lengthB<1.3 and lengthA/lengthB>0.97):
+                addBox={
+                    "x_max": max([editBoxX[i],editBoxX[j],editBoxX[k]]),
+                    "x_min": min([editBoxX[i],editBoxX[j],editBoxX[k]]),
+                    "y_max": max([editBoxY[i],editBoxY[j],editBoxY[k]]),
+                    "y_min": min([editBoxY[i],editBoxY[j],editBoxY[k]]),
+                }
+                try:
+                    targetBox.index(addBox)
+                    break
+                except:
+                    targetBox.append(addBox)
+                    break
+        if addBox!={}:
+            break
 
-content = pytesseract.image_to_string(image,lang='eng',config='--psm 13')
+print(targetBox)
+
+#cv2.imshow('Corner',res2)
+for target in targetBox:
+    adjSize=int((target["x_max"]-target["x_min"])*0.05)
+    image=thresh2[target["y_min"]:target["y_max"],target["x_min"]:target["x_max"]]
+    image = Image.fromarray(image)
+    content = pytesseract.image_to_string(image,lang='eng',config='--psm 13')
+    if content!="":
+        print(content)
+        image.show()
+
+"""adjSize=int((max(editBoxY)-min(editBoxY))*0.05)
+
+image1=thresh2[min(editBoxY)+adjSize:max(editBoxY)-adjSize,editBoxX[7]+adjSize:editBoxX[6]-adjSize]
+image1 = Image.fromarray(image1)
+image1.show() 
+
+image2=thresh2[min(editBoxY)+adjSize:max(editBoxY)-adjSize,editBoxX[5]+adjSize:editBoxX[4]-adjSize]
+image2 = Image.fromarray(image2)
+image2.show() 
+
+content = pytesseract.image_to_string(image1,lang='eng',config='--psm 13')
 print(content)
+
+content = pytesseract.image_to_string(image2,lang='eng',config='--psm 13')
+print(content)"""
 
 print("done")
 cv2.waitKey(0)
