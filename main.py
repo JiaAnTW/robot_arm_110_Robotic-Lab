@@ -1,9 +1,10 @@
 from ui import *
+from dialog import *
 import sys
-sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages') #解決安裝ROS 造成import opencv 出現error的問題
+#sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages') #解決安裝ROS 造成import opencv 出現error的問題
 
 import time
-from PyQt5.QtWidgets import QApplication, QMainWindow
+from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog
 from PyQt5.QtGui import QPixmap, QImage 
 from PyQt5.QtCore import QThread, pyqtSignal, Qt
 
@@ -14,6 +15,9 @@ except Exception as e:
 import cv2
 import pyrealsense2 as rs
 import numpy as np
+
+
+
 
 
 
@@ -47,6 +51,21 @@ class Thread(QThread):
             self.changePixmap.emit(p)
 
 ####
+class MyPopup(QDialog, Ui_dialog):
+
+    def __init__(self, parent=None):
+        super(MyPopup, self).__init__(parent)
+        self.setupUi(self)
+        self.label.resize(1280,720)
+        self.show()
+        
+        
+        
+    @QtCore.pyqtSlot(QtGui.QImage) 
+    def setImage(self, image):
+        self.label.setPixmap(QPixmap.fromImage(image))
+        self.update()
+
 
 class MainWindow(QtWidgets.QMainWindow, Ui_Form):
     def __init__(self, parent=None):
@@ -74,10 +93,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
             else:
                 print("連接失敗，請檢查是否有將dobot接上USB")
 
-    @QtCore.pyqtSlot(QtGui.QImage) 
-    def setImage(self, image):
-        self.label_8.setPixmap(QPixmap.fromImage(image))
-
 
     def _init_ui_connect(self):
         _translate = QtCore.QCoreApplication.translate
@@ -92,11 +107,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         self.comboBox.currentIndexChanged.connect(self.switch_point)
         self.lineEdit.setText(_translate("Form", str(2)))
 
-
-        self.label_8.resize(1280,720)
+        self.streampopup = MyPopup()
+        self.streampopup.show()
 
         th = Thread(self)
-        th.changePixmap.connect(self.setImage)
+        th.changePixmap.connect(self.streampopup.setImage)
         th.start()
     
     def switch_point(self,index):
@@ -195,5 +210,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     w = MainWindow()
+    #w = MyPopup()
     w.show()
     sys.exit(app.exec_())
