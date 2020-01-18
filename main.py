@@ -110,9 +110,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         self.streampopup = MyPopup()
         self.streampopup.show()
 
-        th = Thread(self)
-        th.changePixmap.connect(self.streampopup.setImage)
-        th.start()
+        self.th = Thread(self)
+        self.th.changePixmap.connect(self.streampopup.setImage)
+        self.th.start()
+
+        
+        for x in range(3):
+            self.gridLayout_2.setColumnStretch(x, x+1)
+    def closeEvent(self, event):
+        self.th.quit()
+
     
     def switch_point(self,index):
         try:
@@ -204,6 +211,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
     
     def onBindingUi(self):
         pass
+    
 
 
 
