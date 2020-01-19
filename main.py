@@ -21,12 +21,55 @@ class MySignal(QObject):  # global signal
 
 
 signal = MySignal()
+class correct_Thread(QThread):
+    def run(self):
+        
+        self.correct()
+
+    def set_device(self,device):
+        self.device = device
+    def correct(self):
+        (x, y, z, r, j1, j2, j3, j4) = (260,0,60,0,0,45,45,0)
+        pos=[]
+        def print_data():
+            time.sleep(2)
+            (x1, y1, z1, r1, j11, j21, j31, j41) = self.device.pose()
+            pos.append((x1, y1, z1, r1, j11, j21, j31, j41))
+            print("("+str(x1)+"  ,  "+str(y1)+"  ,  "+str(z1)+"  ,  "+str(j11)+"  ,  "+str(j21)+"  ,  "+str(j31)+"  ,  "+str(j41)+")\n")
+            time.sleep(1)
+
+        indexArr=[]
+        i=1.2
+        for k in range(2) :
+            indexArr.append((x+15*i,y,z,r))
+            indexArr.append((x-10*i,y,z,r))
+            indexArr.append((x+10*i,y-15*i,z+15*i,r))
+            indexArr.append((x,y+20*i,z,r))
+            indexArr.append((x,y-20*i,z,r))
+            indexArr.append((x+10*i,y+15*i,z+15*i,r))
+            indexArr.append((x-15*i,y+20*i,z+15*i,r))
+            indexArr.append((x-15*i,y-10*i,z+15*i,r))
+            i+=1
+
+        for index in indexArr:
+            self.device.move_to(index[0], index[1], index[2], index[3], wait=True)
+            print_data()
+
+        self.device.move_to(x, y,z, r, wait=True)
+        print_data()
+        
+        with open('pos.txt', 'w') as f:
+            for item in pos:
+                f.write(str(item))
+                f.write("\n")
+
+        self.device.move_to(x, y, z, r, wait=True)
+        time.sleep(1)    
+        
 
 
 class Thread(QThread):
     changePixmap = pyqtSignal(QtGui.QImage)
-    
-    
     
 
     def run(self):
@@ -143,6 +186,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         self.comboBox.currentIndexChanged.connect(self.switch_point)
         self.lineEdit.setText(_translate("Form", str(2)))
 
+        self.btn_stop.clicked.connect(self.run_thread)
+
         self.streampopup = MyPopup()
         self.streampopup.show()
         self.setWindowFlags(
@@ -157,8 +202,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
             self.gridLayout_2.setColumnStretch(x, x+1)
     def closeEvent(self, event):
         self.th.stop()
-        
 
+    def save_img(self):
+        global signal
+        signal.sig.emit()
+        
+    def run_thread(self):
+        t = correct_Thread(self)
+        t.set_device(self.device)
+        t.start()
     
     def switch_point(self,index):
         try:
@@ -272,40 +324,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         pass
     
 
-    def correct(self):
-        (x, y, z, r, j1, j2, j3, j4) = (260,0,-8,10,0,45,45,0)
-        pos=[]
-        def print_data():
-            time.sleep(2)
-            (x1, y1, z1, r1, j11, j21, j31, j41) = self.device.pose()
-            pos.append((x1, y1, z1, r1, j11, j21, j31, j41))
-            print("("+str(x1)+"  ,  "+str(y1)+"  ,  "+str(z1)+"  ,  "+str(j11)+"  ,  "+str(j21)+"  ,  "+str(j31)+"  ,  "+str(j41)+")\n")
-            time.sleep(1)
-
-        indexArr=[]
-        i=1.5
-        for k in range(2) :
-            indexArr.append((x+25*i,y,z,r))
-            indexArr.append((x-50*i,y,z,r))
-            indexArr.append((x+20*i,y-30*i,z+15*i,r))
-            indexArr.append((x,y+60*i,z,r))
-            indexArr.append((x,y-60*i,z,r))
-            indexArr.append((x+20*i,y+30*i,z+15*i,r))
-            indexArr.append((x-25*i,y+40*i,z+35*i,r))
-            indexArr.append((x-25*i,y-40*i,z+35*i,r))
-            i+=1
-
-        for index in indexArr:
-            self.device.move_to(index[0], index[1], index[2], index[3], wait=True)
-            print_data()
-        
-        with open('pos.txt', 'w') as f:
-            for item in pos:
-                f.write(str(item))
-                f.write("\n")
-
-        self.device.move_to(x, y, z, r, wait=True)
-        time.sleep(1)
+    
 
 
 if __name__ == "__main__":
