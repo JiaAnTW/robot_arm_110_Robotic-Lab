@@ -1,3 +1,4 @@
+#sudo chmod 666 /dev/ttyUSB0
 from ui import *
 from dialog import *
 import sys
@@ -28,12 +29,16 @@ class correct_Thread(QThread):
 
     def set_device(self,device):
         self.device = device
+    def save_img(self):
+        global signal
+        signal.sig.emit()    
     def correct(self):
         (x, y, z, r, j1, j2, j3, j4) = (260,0,60,0,0,45,45,0)
         pos=[]
         def print_data():
             time.sleep(2)
             (x1, y1, z1, r1, j11, j21, j31, j41) = self.device.pose()
+            self.save_img()
             pos.append((x1, y1, z1, r1, j11, j21, j31, j41))
             print("("+str(x1)+"  ,  "+str(y1)+"  ,  "+str(z1)+"  ,  "+str(j11)+"  ,  "+str(j21)+"  ,  "+str(j31)+"  ,  "+str(j41)+")\n")
             time.sleep(1)
