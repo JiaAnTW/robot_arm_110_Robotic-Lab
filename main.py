@@ -239,6 +239,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         self.lineEdit_4.setText(_translate("Form", str(round(pos[3],5))))
 
     def action(self):
+        test=[]
         for i in range(self.comboBox.count()):
             print(str(self.user_set_pos[i]))
             (x, y, z, r) =self.user_set_pos[i]
@@ -247,10 +248,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
                 self.device.move_to(x, y, z, r, wait=True)
                 time.sleep(self.waitTime)
                 self.get_pos()
+                test.append(self.device.pose())
+                
 
             except Exception as e:
                 print("輸入格式錯誤")
                 print("錯誤訊息： "+str(e))
+        with open('pos.txt', 'w') as f:
+            for item in test:
+                f.write(str(item))
+                f.write("\n")
     
     def _set_user_set_pos(self): 
         try:
@@ -265,6 +272,40 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         pass
     
 
+    def correct(self):
+        (x, y, z, r, j1, j2, j3, j4) = (260,0,-8,10,0,45,45,0)
+        pos=[]
+        def print_data():
+            time.sleep(2)
+            (x1, y1, z1, r1, j11, j21, j31, j41) = self.device.pose()
+            pos.append((x1, y1, z1, r1, j11, j21, j31, j41))
+            print("("+str(x1)+"  ,  "+str(y1)+"  ,  "+str(z1)+"  ,  "+str(j11)+"  ,  "+str(j21)+"  ,  "+str(j31)+"  ,  "+str(j41)+")\n")
+            time.sleep(1)
+
+        indexArr=[]
+        i=1.5
+        for k in range(2) :
+            indexArr.append((x+25*i,y,z,r))
+            indexArr.append((x-50*i,y,z,r))
+            indexArr.append((x+20*i,y-30*i,z+15*i,r))
+            indexArr.append((x,y+60*i,z,r))
+            indexArr.append((x,y-60*i,z,r))
+            indexArr.append((x+20*i,y+30*i,z+15*i,r))
+            indexArr.append((x-25*i,y+40*i,z+35*i,r))
+            indexArr.append((x-25*i,y-40*i,z+35*i,r))
+            i+=1
+
+        for index in indexArr:
+            self.device.move_to(index[0], index[1], index[2], index[3], wait=True)
+            print_data()
+        
+        with open('pos.txt', 'w') as f:
+            for item in pos:
+                f.write(str(item))
+                f.write("\n")
+
+        self.device.move_to(x, y, z, r, wait=True)
+        time.sleep(1)
 
 
 if __name__ == "__main__":
