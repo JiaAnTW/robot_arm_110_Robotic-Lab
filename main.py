@@ -4,9 +4,9 @@ import sys
 #sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages') #解決安裝ROS 造成import opencv 出現error的問題
 
 import time
-from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog
+from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QVBoxLayout
 from PyQt5.QtGui import QPixmap, QImage 
-from PyQt5.QtCore import QThread, pyqtSignal, Qt
+from PyQt5.QtCore import  QObject, QThread, pyqtSignal, Qt
 
 try:
     from pydobot import Dobot
@@ -16,48 +16,61 @@ import cv2
 import pyrealsense2 as rs
 import numpy as np
 
+class MySignal(QObject):  # global signal 
+    sig = QtCore.pyqtSignal()
 
 
+signal = MySignal()
 
 
-
-
-###
 class Thread(QThread):
     changePixmap = pyqtSignal(QtGui.QImage)
+    
+    
+    
 
     def run(self):
+        global signal
+        self.i = 0
+        signal.sig.connect(self.save_img)
+
         self.pipeline = rs.pipeline()
         self.config = rs.config()
         #config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 30)
         self.config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
 
         self.pipeline.start(self.config)
-        try:
-            while True:
-                frames = self.pipeline.wait_for_frames()
-                color_frame = frames.get_color_frame()
-                if  not color_frame:
-                    continue
+        
+        while True:
+            frames = self.pipeline.wait_for_frames()
+            color_frame = frames.get_color_frame()
+            if  not color_frame:
+                continue
 
-                color_image = np.asanyarray(color_frame.get_data())
-                h, w, ch = color_image.shape
-                bytesPerLine = ch * w
+            self.color_image = np.asanyarray(color_frame.get_data())
+            self.img = self.color_image
+            h, w, ch = self.color_image.shape
+            bytesPerLine = ch * w
+           
+            
+            cv2.cvtColor(self.color_image, cv2.COLOR_RGB2BGR, self.color_image)
+            
+            #cv2.COLOR_RGB2BGR
                 
-                cv2.cvtColor(color_image, cv2.COLOR_RGB2BGR, color_image)
-                #cv2.COLOR_RGB2BGR
-                    
-                convertToQtFormat = QtGui.QImage(color_image.data, w, h, bytesPerLine, QtGui.QImage.Format_RGB888)
-                p = convertToQtFormat.scaled(1280, 720, Qt.KeepAspectRatio)
-                self.changePixmap.emit(p)
-        finally:
-            self.pipeline.stop()
+            convertToQtFormat = QtGui.QImage(self.color_image.data, w, h, bytesPerLine, QtGui.QImage.Format_RGB888)
+            p = convertToQtFormat.scaled(1280, 720, Qt.KeepAspectRatio)
+            self.changePixmap.emit(p)
+        
+    def save_img(self):
+        cv2.cvtColor(self.img, cv2.COLOR_RGB2BGR, self.img)
+        cv2.imwrite(str(self.i)+'.jpg', self.img)
+        self.i +=1
+        print("save: "+str(self.i)+"\n")
+
     def stop(self):
         self.pipeline.stop()
         self.quit()
 
-
-####
 class MyPopup(QDialog, Ui_dialog):
 
     def __init__(self, parent=None):
@@ -65,17 +78,23 @@ class MyPopup(QDialog, Ui_dialog):
         self.setupUi(self)
         self.label.resize(1280,720)
         self.label.move(0,0)
+
+        self.btn_save.clicked.connect(self.save_img)
         self.show()
         
     def mousePressEvent(self, event):
         x = event.x()
         y = event.y()
         if x <= 1280 and y <= 720:
-            print (x,y)
+            #print (x,y)
             self.label_X.setText(str(x))
             self.label_Y.setText(str(y))
             self.update()
 
+
+    def save_img(self):
+        global signal
+        signal.sig.emit()
         
         
     @QtCore.pyqtSlot(QtGui.QImage) 
@@ -163,38 +182,50 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
     def set_x(self,content):
         try:
             tmp=self.user_set_pos[self.comboBox.count()-1]
-            self.user_set_pos[self.comboBox.count()-1]=(float(content),tmp[1],tmp[2],tmp[3])
+            print(tmp)
+            (x, y, z, r) =tmp
+            print(content)
+            self.user_set_pos[self.comboBox.count()-1]=(float(content),y,z,r)
         except Exception as e:
             print("輸入格式錯誤")
             print(e)
     
     def set_y(self,content):
         try:
-            self.user_set_pos[self.comboBox.count()]=(tmp[0],float(content),tmp[2],tmp[3])
+            tmp=self.user_set_pos[self.comboBox.count()-1]
+            (x, y, z, r) =tmp
+            self.user_set_pos[self.comboBox.count()-1]=(x,float(content),z,r)
         except Exception as e:
             print("輸入格式錯誤")
+            print(e)
 
     def set_z(self,content):
         try:
-            self.user_set_pos[self.comboBox.count()]=(tmp[0],tmp[1],float(content),tmp[3])
+            tmp=self.user_set_pos[self.comboBox.count()-1]
+            (x, y, z, r) =tmp
+            self.user_set_pos[self.comboBox.count()-1]=(x,y,float(content),r)
         except Exception as e:
             print("輸入格式錯誤")
+            print(e)
 
     def set_r(self,content):
         try:
-            self.user_set_pos[self.comboBox.count()]=(tmp[0],tmp[1],tmp[2],float(content))
+            tmp=self.user_set_pos[self.comboBox.count()-1]
+            (x, y, z, r) =tmp
+            self.user_set_pos[self.comboBox.count()-1]=(x,y,z,float(content))
         except Exception as e:
             print("輸入格式錯誤")
+            print(e)
 
     def get_pos(self):
         _translate = QtCore.QCoreApplication.translate
         try:
-            pos=self.device.pose()
-            self.user_set_pos[0]=pos
-            print(pos)
+            (x,y,z,r,j1,j2,j3,j4)=self.device.pose()
+            self.user_set_pos[0]=(x,y,z,r)
         except Exception as e:
-            pos=(0,0,0,0)
+            self.user_set_pos[0]=(0,0,0,0)
 
+        pos=self.user_set_pos[0]
         self.label_1.setText(_translate("Form", str(round(pos[0],5))))
         self.lineEdit_1.setText(_translate("Form", str(round(pos[0],5))))
 
@@ -209,8 +240,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
 
     def action(self):
         for i in range(self.comboBox.count()):
+            print(str(self.user_set_pos[i]))
             (x, y, z, r) =self.user_set_pos[i]
-            print(str(x))
+            
             try: #call  pydobot
                 self.device.move_to(x, y, z, r, wait=True)
                 time.sleep(self.waitTime)
