@@ -33,22 +33,29 @@ class Thread(QThread):
         self.config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
 
         self.pipeline.start(self.config)
-        while True:
-            frames = self.pipeline.wait_for_frames()
-            color_frame = frames.get_color_frame()
-            if  not color_frame:
-                continue
+        try:
+            while True:
+                frames = self.pipeline.wait_for_frames()
+                color_frame = frames.get_color_frame()
+                if  not color_frame:
+                    continue
 
-            color_image = np.asanyarray(color_frame.get_data())
-            h, w, ch = color_image.shape
-            bytesPerLine = ch * w
-            
-            cv2.cvtColor(color_image, cv2.COLOR_RGB2BGR, color_image)
-            #cv2.COLOR_RGB2BGR
+                color_image = np.asanyarray(color_frame.get_data())
+                h, w, ch = color_image.shape
+                bytesPerLine = ch * w
                 
-            convertToQtFormat = QtGui.QImage(color_image.data, w, h, bytesPerLine, QtGui.QImage.Format_RGB888)
-            p = convertToQtFormat.scaled(1280, 720, Qt.KeepAspectRatio)
-            self.changePixmap.emit(p)
+                cv2.cvtColor(color_image, cv2.COLOR_RGB2BGR, color_image)
+                #cv2.COLOR_RGB2BGR
+                    
+                convertToQtFormat = QtGui.QImage(color_image.data, w, h, bytesPerLine, QtGui.QImage.Format_RGB888)
+                p = convertToQtFormat.scaled(1280, 720, Qt.KeepAspectRatio)
+                self.changePixmap.emit(p)
+        finally:
+            self.pipeline.stop()
+    def stop(self):
+        self.pipeline.stop()
+        self.quit()
+
 
 ####
 class MyPopup(QDialog, Ui_dialog):
@@ -57,8 +64,18 @@ class MyPopup(QDialog, Ui_dialog):
         super(MyPopup, self).__init__(parent)
         self.setupUi(self)
         self.label.resize(1280,720)
+        self.label.move(0,0)
         self.show()
         
+    def mousePressEvent(self, event):
+        x = event.x()
+        y = event.y()
+        if x <= 1280 and y <= 720:
+            print (x,y)
+            self.label_X.setText(str(x))
+            self.label_Y.setText(str(y))
+            self.update()
+
         
         
     @QtCore.pyqtSlot(QtGui.QImage) 
@@ -109,6 +126,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
 
         self.streampopup = MyPopup()
         self.streampopup.show()
+        self.setWindowFlags(
+            Qt.WindowStaysOnTopHint)
 
         self.th = Thread(self)
         self.th.changePixmap.connect(self.streampopup.setImage)
@@ -118,7 +137,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         for x in range(3):
             self.gridLayout_2.setColumnStretch(x, x+1)
     def closeEvent(self, event):
-        self.th.quit()
+        self.th.stop()
+        
 
     
     def switch_point(self,index):
