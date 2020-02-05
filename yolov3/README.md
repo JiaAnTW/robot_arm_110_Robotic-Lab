@@ -1,6 +1,6 @@
 # 注意事項
 # 載模型
-請先到[https://drive.google.com/open?id=1O7gbsR4eAk4lptmVe1Ce9QKZIvf1U2vH](https://drive.google.com/open?id=1O7gbsR4eAk4lptmVe1Ce9QKZIvf1U2vH)
+請先到[https://drive.google.com/file/d/1O7gbsR4eAk4lptmVe1Ce9QKZIvf1U2vH/view?usp=sharing](https://drive.google.com/file/d/1O7gbsR4eAk4lptmVe1Ce9QKZIvf1U2vH/view?usp=sharing
 
 把模型下載下來,放在yolov3資料夾底下
 
