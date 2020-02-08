@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import time
 import darknet
+import pyrealsense2 as rs
 
 def convertBack(x, y, w, h):
     xmin = int(round(x - (w / 2)))
@@ -40,8 +41,7 @@ altNames = None
 
 
 def YOLO():
-    import pyrealsense2 as rs
-    import threading
+    global pipeline, config
     pipeline = rs.pipeline()
     config = rs.config()
     config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
@@ -86,29 +86,14 @@ def YOLO():
         except Exception:
             pass
 
-    ###改這一行以下的內容
-    ###把下面這一行改成pyrealsence的影像源
-    #cap = cv2.VideoCapture(0)
-
-    #單一影片檔才會用到
-    #cap = cv2.VideoCapture("test.mp4")
-
-    #cap.set(3, 1280)
-    #cap.set(4, 720)
-
-    #單一影片檔才會用到
-    #out = cv2.VideoWriter(
-        #"output.avi", cv2.VideoWriter_fourcc(*"MJPG"), 10.0,
-        #(darknet.network_width(netMain), darknet.network_height(netMain)))
-    #print("Starting the YOLO loop...")
-
-    # Create an image we reuse for each detect
+    global darknet_image
     darknet_image = darknet.make_image(darknet.network_width(netMain),
                                     darknet.network_height(netMain),3)
-    #while True:
+
+def detect_box(color_image):
     prev_time = time.time()
     #ret, frame_read = cap.read()
-    frames = pipeline.wait_for_frames()
+    """frames = pipeline.wait_for_frames()
     color_frame = frames.get_color_frame()
     #if  not color_frame:
         #continue
@@ -117,7 +102,7 @@ def YOLO():
     img = color_image
     h, w, ch = color_image.shape
     bytesPerLine = ch * w 
-    cv2.cvtColor(color_image, cv2.COLOR_RGB2BGR, color_image)
+    cv2.cvtColor(color_image, cv2.COLOR_RGB2BGR, color_image)"""
 
 
 
@@ -142,3 +127,13 @@ def YOLO():
 
 if __name__ == "__main__":
     YOLO()
+    
+    frames = pipeline.wait_for_frames()
+    color_frame = frames.get_color_frame()
+    color_image = np.asanyarray(color_frame.get_data())
+    img = color_image
+    h, w, ch = color_image.shape
+    bytesPerLine = ch * w 
+    cv2.cvtColor(color_image, cv2.COLOR_RGB2BGR, color_image)
+
+    detect_box(color_image)
