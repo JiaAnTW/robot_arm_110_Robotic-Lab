@@ -397,6 +397,10 @@ def performDetect(imagePath="data/dog.jpg", thresh= 0.25, configPath = "./cfg/yo
         try:
             from skimage import io, draw
             import numpy as np
+            import cv2
+            i=0
+            imageCV = cv2.imread(imagePath)
+            print("size is "+str(imageCV.shape))
             image = io.imread(imagePath)
             print("*** "+str(len(detections))+" Results, color coded by confidence ***")
             imcaption = []
@@ -423,6 +427,11 @@ def performDetect(imagePath="data/dog.jpg", thresh= 0.25, configPath = "./cfg/yo
                     [xCoord + xEntent, yCoord + yExtent],
                     [xCoord + xEntent, yCoord]
                 ]
+                if label=="qrcode":
+                    singlePic=imageCV[boundingBox[0][1]:boundingBox[1][1], boundingBox[0][0]:boundingBox[2][0]]
+                    cv2.imshow("obj"+str(i),singlePic)
+                    print("obj"+str(i)+" is at "+str(boundingBox))
+                    i+=1
                 # Wiggle it around to make a 3px border
                 rr, cc = draw.polygon_perimeter([x[1] for x in boundingBox], [x[0] for x in boundingBox], shape= shape)
                 rr2, cc2 = draw.polygon_perimeter([x[1] + 1 for x in boundingBox], [x[0] for x in boundingBox], shape= shape)
@@ -443,12 +452,13 @@ def performDetect(imagePath="data/dog.jpg", thresh= 0.25, configPath = "./cfg/yo
                 "image": image,
                 "caption": "\n<br/>".join(imcaption)
             }
+            cv2.waitKey(3)
         except Exception as e:
             print("Unable to show image: "+str(e))
     return detections
 
 if __name__ == "__main__":
-    data=performDetect(imagePath="./img/test.jpg",
+    data=performDetect(imagePath="./img/85.jpg",
             thresh= 0.25,
             configPath = "./cfg/yolov3-obj.cfg",
             weightPath = "yolo-obj_last.weights",

@@ -1,4 +1,4 @@
-classes= 16
+classes= 17
 train  = data/train.txt
 valid  = data/test.txt
 #difficult = data/difficult_2007_test.txt

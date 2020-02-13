@@ -7,7 +7,9 @@ import sys
 import time
 from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QVBoxLayout
 from PyQt5.QtGui import QPixmap, QImage 
-from PyQt5.QtCore import  QObject, QThread, pyqtSignal, Qt
+from PyQt5.QtCore import  QObject, QThread, pyqtSignal, Qt, QMutex
+import darknet
+import yolov3
 
 try:
     from pydobot import Dobot
@@ -17,11 +19,58 @@ import cv2
 import pyrealsense2 as rs
 import numpy as np
 
+#img_mutex,det_mutex,detection_result,detection_img,is_detect,is_Finish
+is_Finish=True
+is_detect=False
+detection_img=None 
+img_mutex=QMutex()
+det_mutex=QMutex() 
+detection_result=None 
+
+
 class MySignal(QObject):  # global signal 
     sig = QtCore.pyqtSignal()
 
 
 signal = MySignal()
+
+#global 
+
+
+
+class yolo_Thread(QThread):
+        
+    def run(self):
+        self.is_Finish=True
+        self.is_img=False
+        self.is_detect=False
+        self.detection_img=None 
+        self.fin_mutex=QMutex()
+        self.img_mutex=QMutex()
+        self.det_mutex=QMutex() 
+        self.detection_result=None 
+        yolov3.YOLO() 
+        while True:
+            try:
+                if self.is_img==True :
+                    print("let's detect!")
+                    detections=yolov3.detect_box(self.detection_img)
+                    self.img_mutex.lock()
+                    self.is_Finish=True
+                    self.is_img=False
+                    self.img_mutex.unlock()
+                    self.detection_img=None
+                    self.detection_result=detections
+            except Exception as e:
+                print("stop during thread pool")
+                print(e)
+
+                
+                
+
+    
+
+
 class correct_Thread(QThread):
     def run(self):
         
@@ -81,14 +130,16 @@ class Thread(QThread):
         global signal
         self.i = 0
         signal.sig.connect(self.save_img)
-
         self.pipeline = rs.pipeline()
         self.config = rs.config()
         #config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 30)
         self.config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
-
         self.pipeline.start(self.config)
-        
+        detection_result=None
+        is_Finish=True
+        self.yolo_t=yolo_Thread()
+        self.yolo_t.start()
+
         while True:
             frames = self.pipeline.wait_for_frames()
             color_frame = frames.get_color_frame()
@@ -102,12 +153,39 @@ class Thread(QThread):
            
             
             cv2.cvtColor(self.color_image, cv2.COLOR_RGB2BGR, self.color_image)
-            
             #cv2.COLOR_RGB2BGR
-                
-            convertToQtFormat = QtGui.QImage(self.color_image.data, w, h, bytesPerLine, QtGui.QImage.Format_RGB888)
-            p = convertToQtFormat.scaled(1280, 720, Qt.KeepAspectRatio)
-            self.changePixmap.emit(p)
+            #print("is detect is "+str(self.yolo_t.is_detect)+", img is "+str(self.yolo_t.is_Finish))
+            if self.yolo_t.is_detect==True and self.yolo_t.is_Finish==True:
+                self.yolo_t.img_mutex.lock()
+                self.yolo_t.is_img=True
+                self.yolo_t.is_detect=False
+                self.yolo_t.detection_img=self.color_image
+                self.yolo_t.img_mutex.unlock()
+                self.yolo_t.fin_mutex.lock()
+                self.yolo_t.is_Finish=False
+                self.yolo_t.fin_mutex.unlock()
+
+            if self.yolo_t.detection_result!=None:
+                try:
+                    self.yolo_t.det_mutex.lock()
+                    #print(str(self.yolo_t.detection_result))
+                    self.color_image = yolov3.cvDrawBoxes(self.yolo_t.detection_result, self.color_image)
+                    #print("yyoyoyo!")
+                    self.yolo_t.is_detect=False
+                    self.yolo_t.det_mutex.unlock()
+                    self.color_image = cv2.cvtColor(self.color_image, cv2.COLOR_BGR2RGB)
+                    #print("Finish all")
+                except Exception as e:
+                    print(e)
+            try:    
+                convertToQtFormat = QtGui.QImage(self.color_image.data, w, h, bytesPerLine, QtGui.QImage.Format_RGB888)
+                p = convertToQtFormat.scaled(1280, 720, Qt.KeepAspectRatio)
+                self.changePixmap.emit(p)
+            except Exception as e:
+                print("stop atfter detect")
+                print(e)
+
+
         
     def save_img(self):
         cv2.cvtColor(self.img, cv2.COLOR_RGB2BGR, self.img)
@@ -118,6 +196,10 @@ class Thread(QThread):
     def stop(self):
         self.pipeline.stop()
         self.quit()
+
+    def setFinish(self):
+        self.yolo_t.is_detect=True
+        
 
 class MyPopup(QDialog, Ui_dialog):
 
@@ -155,6 +237,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent=parent)
         self.setupUi(self)
+
         self.onBindingUi()
         self.user_set_pos=[(0,0,0,0)]
         print("開始自動尋找dobot所在的port\n")
@@ -191,7 +274,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         self.comboBox.currentIndexChanged.connect(self.switch_point)
         self.lineEdit.setText(_translate("Form", str(2)))
 
-        self.btn_stop.clicked.connect(self.run_thread)
+        self.btn_correct.clicked.connect(self.run_thread)
+        self.btn_detect.clicked.connect(self.single_detect)
 
         self.streampopup = MyPopup()
         self.streampopup.show()
@@ -207,6 +291,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
             self.gridLayout_2.setColumnStretch(x, x+1)
     def closeEvent(self, event):
         self.th.stop()
+
+    def single_detect(self):
+        self.th.setFinish()
 
     def save_img(self):
         global signal
