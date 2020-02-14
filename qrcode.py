@@ -7,3 +7,7 @@ except Exception as e:
 
 def decodePic(img):
     return decode(img)
+
+if __name__ == "__main__":
+    import cv2
+    print(decodePic(cv2.imread("./test.png"))[0].data)

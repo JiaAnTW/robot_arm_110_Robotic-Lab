@@ -5,10 +5,12 @@ import sys
 #sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages') #解決安裝ROS 造成import opencv 出現error的問題
 
 import time
+import threading
 from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QVBoxLayout
 from PyQt5.QtGui import QPixmap, QImage 
 from PyQt5.QtCore import  QObject, QThread, pyqtSignal, Qt, QMutex
 import darknet
+import qrcode
 import yolov3
 
 try:
@@ -39,7 +41,7 @@ signal = MySignal()
 
 
 class yolo_Thread(QThread):
-        
+    addNewObj= pyqtSignal(list)
     def run(self):
         self.is_Finish=True
         self.is_img=False
@@ -58,9 +60,11 @@ class yolo_Thread(QThread):
                     self.img_mutex.lock()
                     self.is_Finish=True
                     self.is_img=False
+                    self.addNewObj.emit([detections,self.detection_img])
                     self.img_mutex.unlock()
                     self.detection_img=None
                     self.detection_result=detections
+                    
             except Exception as e:
                 print("stop during thread pool")
                 print(e)
@@ -124,7 +128,7 @@ class correct_Thread(QThread):
 
 class Thread(QThread):
     changePixmap = pyqtSignal(QtGui.QImage)
-    
+    addNewObj= pyqtSignal(list,list)
 
     def run(self):
         global signal
@@ -139,6 +143,7 @@ class Thread(QThread):
         is_Finish=True
         self.yolo_t=yolo_Thread()
         self.yolo_t.start()
+        self.yolo_t.addNewObj.connect(self.obj_thread)
 
         while True:
             frames = self.pipeline.wait_for_frames()
@@ -182,7 +187,7 @@ class Thread(QThread):
                 p = convertToQtFormat.scaled(1280, 720, Qt.KeepAspectRatio)
                 self.changePixmap.emit(p)
             except Exception as e:
-                print("stop atfter detect")
+                print("stop after detect")
                 print(e)
 
 
@@ -199,6 +204,30 @@ class Thread(QThread):
 
     def setFinish(self):
         self.yolo_t.is_detect=True
+
+    def obj_thread(self, data):
+        th=threading.Thread(target = self.updateObj, args = (data[0], data[1]))
+        th.start()
+
+    def updateObj(self,detection,img):
+        name=[]
+        for item in detection:
+            try:
+                x, y, w, h = item[2][0],\
+                item[2][1],\
+                item[2][2],\
+                item[2][3]
+                xmin, ymin, xmax, ymax = yolov3.convertBack(
+                float(x), float(y), float(w), float(h),img.shape[1]/darknet.network_width(yolov3.netMain),img.shape[0]/darknet.network_height(yolov3.netMain))
+                image=img[ymin:ymax,xmin:xmax]
+                name.append(qrcode.decodePic(image)[0].data)
+                print("item is "+str(name[len(name)-1]))
+            except Exception as e:
+                print(e)
+            
+        self.addNewObj.emit(name,detection)
+            
+
         
 
 class MyPopup(QDialog, Ui_dialog):
@@ -284,6 +313,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
 
         self.th = Thread(self)
         self.th.changePixmap.connect(self.streampopup.setImage)
+        self.th.addNewObj.connect(self.add_obj)
         self.th.start()
 
         
@@ -361,6 +391,26 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
             print("輸入格式錯誤")
             print(e)
 
+    def add_obj(self,name,objList):
+        _translate = QtCore.QCoreApplication.translate
+        for obj in self.objArr:
+            for items in obj:
+                del items
+        self.objArr=[]
+        j=0
+        for obj in objList:
+            self.objArr.append([
+                    QtWidgets.QLabel(self.objInfoWidget),
+                    QtWidgets.QLabel(self.objInfoWidget),
+                    QtWidgets.QPushButton(self.objInfoWidget),
+                ])
+            for i in range(3):
+                self.objLayout.addWidget(self.objArr[j][i], 2+j, i, 1, 1)
+            self.objArr[j][0].setText(_translate("Form", str(name[j])))
+            self.objArr[j][1].setText(_translate("Form", str(obj[2])))
+            self.objArr[j][2].setText(_translate("Form", "抓取"))
+            j+=1
+    
     def get_pos(self):
         _translate = QtCore.QCoreApplication.translate
         try:
