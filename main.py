@@ -6,7 +6,7 @@ import sys
 
 import time
 import threading
-from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QVBoxLayout
+from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QVBoxLayout,QButtonGroup
 from PyQt5.QtGui import QPixmap, QImage 
 from PyQt5.QtCore import  QObject, QThread, pyqtSignal, Qt, QMutex
 import darknet
@@ -211,6 +211,7 @@ class Thread(QThread):
 
     def updateObj(self,detection,img):
         name=[]
+        pos=[]
         for item in detection:
             try:
                 x, y, w, h = item[2][0],\
@@ -220,12 +221,13 @@ class Thread(QThread):
                 xmin, ymin, xmax, ymax = yolov3.convertBack(
                 float(x), float(y), float(w), float(h),img.shape[1]/darknet.network_width(yolov3.netMain),img.shape[0]/darknet.network_height(yolov3.netMain))
                 image=img[ymin:ymax,xmin:xmax]
+                pos.append([int((xmin+xmax)/2),int((ymin+ymax)/2)])
                 name.append(qrcode.decodePic(image)[0].data)
                 print("item is "+str(name[len(name)-1]))
             except Exception as e:
                 print(e)
             
-        self.addNewObj.emit(name,detection)
+        self.addNewObj.emit(name,pos)
             
 
         
@@ -266,7 +268,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent=parent)
         self.setupUi(self)
-
+        self.nowItem=[]
+        self.btn_grp = QButtonGroup(self)
+        self.btn_grp.setExclusive(True)
         self.onBindingUi()
         self.user_set_pos=[(0,0,0,0)]
         print("開始自動尋找dobot所在的port\n")
@@ -274,6 +278,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         self._init_ui_connect()
         self.get_pos()
         self.waitTime=2
+
     
     def _connect_dobot(self,i):
         try:
@@ -305,6 +310,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
 
         self.btn_correct.clicked.connect(self.run_thread)
         self.btn_detect.clicked.connect(self.single_detect)
+        self.btn_grp.buttonClicked[int].connect(self.get_items)
 
         self.streampopup = MyPopup()
         self.streampopup.show()
@@ -395,9 +401,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         _translate = QtCore.QCoreApplication.translate
         for obj in self.objArr:
             for items in obj:
-                del items
+                items.deleteLater()
+                self.objLayout.removeWidget(items)
+        del self.btn_grp
+        self.btn_grp=QButtonGroup(self)
+        self.btn_grp.setExclusive(True)
+        self.btn_grp.buttonClicked[int].connect(self.get_items)
         self.objArr=[]
         j=0
+        self.nowItem=[]
         for obj in objList:
             self.objArr.append([
                     QtWidgets.QLabel(self.objInfoWidget),
@@ -407,8 +419,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
             for i in range(3):
                 self.objLayout.addWidget(self.objArr[j][i], 2+j, i, 1, 1)
             self.objArr[j][0].setText(_translate("Form", str(name[j])))
-            self.objArr[j][1].setText(_translate("Form", str(obj[2])))
+            self.objArr[j][1].setText(_translate("Form", str(obj)))
             self.objArr[j][2].setText(_translate("Form", "抓取"))
+            self.btn_grp.addButton(self.objArr[j][2],j)
+            #self.objArr[j][2].click.connect(self.get_items)
+            self.nowItem.append({"name":name[j],"pos":obj})
             j+=1
     
     def get_pos(self):
@@ -431,6 +446,22 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
 
         self.label_7.setText(_translate("Form", str(round(pos[3],5))))
         self.lineEdit_4.setText(_translate("Form", str(round(pos[3],5))))
+
+
+
+    def get_items(self,idi):
+        
+        btn_id=idi
+        print("id is "+str(btn_id))
+        print("click "+str(btn_id))
+        x=self.nowItem[btn_id]["pos"][0]
+        y=self.nowItem[btn_id]["pos"][1]
+        print("go to "+str(x)+" "+str(y))
+        y1=float(-55*x/228+204.1228)
+        x1=float(-5*y/19+414.4737)
+        self.device.move_to(x1, y1, -20, 0, wait=True)
+        time.sleep(1)
+        self.device.move_to(260, 0, 100, 0, wait=True)
 
     def action(self):
         test=[]
