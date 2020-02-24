@@ -296,10 +296,14 @@ class Thread(QThread):
     def updateObj(self,detection,img):
         name=[]
         pos=[]
-        time.sleep(1)
+        if detection ==[]:
+            time.sleep(2)
+            self.beforeResult=detection
+            self.addNewObj.emit(name,pos)
+            return
         if detection!=None and self.beforeResult!=detection:
-            try:
-                for item in detection:
+            for item in detection:
+                try:
                     x, y, w, h = item[2][0],\
                     item[2][1],\
                     item[2][2],\
@@ -310,9 +314,8 @@ class Thread(QThread):
                     pos.append([int((xmin+xmax)/2),int((ymin+ymax)/2)])
                     name.append(qrcode.decodePic(image)[0].data.decode())
                     #print("item is "+str(name[len(name)-1]))
-            except Exception as e:
-                print("hi")
-                    #print(e)
+                except Exception as e:
+                    name.append("不明物")
             self.beforeResult=detection
             self.addNewObj.emit(name,pos)
             
@@ -505,6 +508,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         self.objArr=[]
         j=0
         self.nowItem=[]
+        if objList==[]:
+            return
         for obj in objList:
             self.objArr.append([
                     QtWidgets.QLabel(self.objInfoWidget),
@@ -513,12 +518,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
                 ])
             for i in range(3):
                 self.objLayout.addWidget(self.objArr[j][i], 2+j, i, 1, 1)
-            self.objArr[j][0].setText(_translate("Form", str(name[j])))
+            try:
+                self.objArr[j][0].setText(_translate("Form", str(name[j])))
+                self.nowItem.append({"name":name[j],"pos":obj})
+            except:
+                self.objArr[j][0].setText(_translate("Form", "不明物"))
+                self.nowItem.append({"name":"不明物","pos":obj})
             self.objArr[j][1].setText(_translate("Form", str(obj)))
             self.objArr[j][2].setText(_translate("Form", "抓取"))
             self.btn_grp.addButton(self.objArr[j][2],j)
-            #self.objArr[j][2].click.connect(self.get_items)
-            self.nowItem.append({"name":name[j],"pos":obj})
+            #self.objArr[j][2].click.connect(self.get_items)    
             j+=1
     
     def get_pos(self):
