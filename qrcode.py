@@ -6,7 +6,11 @@ except Exception as e:
     print("以及 pip install pyzbar")
 
 def decodePic(img):
-    return decode(img)
+    try:
+        if type(img)!= str:
+            return decode(img)
+    except:
+        return []
 
 if __name__ == "__main__":
     import cv2

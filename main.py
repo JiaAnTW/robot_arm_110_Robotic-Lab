@@ -3,7 +3,7 @@ from ui import *
 from dialog import *
 import sys
 #sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages') #解決安裝ROS 造成import opencv 出現error的問題
-
+from socket import *
 import time
 import threading
 from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QVBoxLayout,QButtonGroup
@@ -44,19 +44,33 @@ class yolo_Thread(QThread):
     addNewObj= pyqtSignal(list)
     def run(self):
         self.is_Finish=True
+        self.i=0
         self.is_img=False
         self.is_detect=False
+        self.is_always_detect=False
         self.detection_img=None 
         self.fin_mutex=QMutex()
         self.img_mutex=QMutex()
         self.det_mutex=QMutex() 
-        self.detection_result=None 
-        yolov3.YOLO() 
+        self.detection_result=None
+        yolov3.YOLO()
+        threading.Thread(target = self.initSocket())
         while True:
             try:
                 if self.is_img==True :
-                    print("let's detect!")
-                    detections=yolov3.detect_box(self.detection_img)
+                    #print("let's detect!")
+                    #detections=yolov3.detect_box(self.detection_img)
+                    if self.is_always_detect==True:
+                        try:
+                            cv2.imwrite("target.jpg", self.detection_img)
+                            self.i=1
+                            detections=self.sendData()
+                        except Exception as e:
+                            print("沒有連接到socket,將無法開啟即時偵測功能")
+                            self.is_always_detect=False
+                            print(e)
+                    elif self.is_detect==True:
+                        detections=yolov3.detect_box(self.detection_img)
                     self.img_mutex.lock()
                     self.is_Finish=True
                     self.is_img=False
@@ -64,14 +78,73 @@ class yolo_Thread(QThread):
                     self.img_mutex.unlock()
                     self.detection_img=None
                     self.detection_result=detections
+                    #print("done")
                     
             except Exception as e:
                 print("stop during thread pool")
                 print(e)
+    
+    def initSocket(self):
+        HOST=''
+        PORT = 8888
+        ADDR = (HOST,PORT)
+        self.tcpSerSock = socket(AF_INET, SOCK_STREAM)  
+        self.tcpSerSock.bind(ADDR)
+        self.tcpSerSock.listen()
+        print('wating for connection...')
+        self.tcpCliSock,self.addr = self.tcpSerSock.accept()
 
-                
-                
+        print( '...connected from:',self.addr)
+        BUFSIZE = 1024
+        data = self.tcpCliSock.recv(BUFSIZE)
+        #print (data)
+        #self.tcpSerSock.setblocking(False)
+        #self.tcpCliSock.setblocking(False)
+        
+    
+    def sendData(self):
+        try:
+            if (self.is_Finish==False):
+                import os
+                os.system("cp target.jpg /media/sf_winLinux/project")
+                data="test"
+                BUFSIZE = 1024
+                self.tcpCliSock.send(data.encode())
+                #print("here")
+                #time.sleep(1.5)
+                data = self.tcpCliSock.recv(BUFSIZE)
+                data=str(data)
+                #print ("123") 
+                return self.handleString(data)
+        except Exception as e:
+            print("error during send and recv socket")
+            print(e)
+            return []
 
+    def handleString(self,obj):
+        try:
+            strArr=obj.split("'")
+            #print(obj)
+            name=strArr[1]
+            strArr[2]=strArr[2].replace("(", "")
+            strArr[2]=strArr[2].replace(")", "")
+            strArr[2]=strArr[2].replace("]", "")
+            strArr[2]=strArr[2].replace("\"", "")
+            strArr[2]=strArr[2].split(",")
+            strArr[2].pop(0)
+            for items in strArr[2]:
+                items=float(items)
+            data=[(name,float(strArr[2][0]),
+            (float(strArr[2][1]),float(strArr[2][2]),float(strArr[2][3]),float(strArr[2][4])))]
+            return data
+        except Exception as e:
+            print("error handle string from socket")
+            print("data is "+obj)
+            print(e)
+            return []            
+
+    def _del_(self):      
+        self.tcpCliSock.close() 
     
 
 
@@ -136,6 +209,7 @@ class Thread(QThread):
         signal.sig.connect(self.save_img)
         self.pipeline = rs.pipeline()
         self.config = rs.config()
+        self.beforeResult=[]
         #config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 30)
         self.config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
         self.pipeline.start(self.config)
@@ -150,18 +224,19 @@ class Thread(QThread):
             color_frame = frames.get_color_frame()
             if  not color_frame:
                 continue
-
+            #print("1")
             self.color_image = np.asanyarray(color_frame.get_data())
             self.img = self.color_image
             h, w, ch = self.color_image.shape
             bytesPerLine = ch * w
            
-            
+            #print("2")
             cv2.cvtColor(self.color_image, cv2.COLOR_RGB2BGR, self.color_image)
             #cv2.COLOR_RGB2BGR
             #print("is detect is "+str(self.yolo_t.is_detect)+", img is "+str(self.yolo_t.is_Finish))
-            if self.yolo_t.is_detect==True and self.yolo_t.is_Finish==True:
+            if (self.yolo_t.is_detect==True or self.yolo_t.is_always_detect==True) and self.yolo_t.is_Finish==True:
                 self.yolo_t.img_mutex.lock()
+                #print("koko")
                 self.yolo_t.is_img=True
                 self.yolo_t.is_detect=False
                 self.yolo_t.detection_img=self.color_image
@@ -169,19 +244,22 @@ class Thread(QThread):
                 self.yolo_t.fin_mutex.lock()
                 self.yolo_t.is_Finish=False
                 self.yolo_t.fin_mutex.unlock()
-
+            #print("3")
             if self.yolo_t.detection_result!=None:
                 try:
+                    #print("123456")
                     self.yolo_t.det_mutex.lock()
                     #print(str(self.yolo_t.detection_result))
                     self.color_image = yolov3.cvDrawBoxes(self.yolo_t.detection_result, self.color_image)
                     #print("yyoyoyo!")
                     self.yolo_t.is_detect=False
                     self.yolo_t.det_mutex.unlock()
-                    self.color_image = cv2.cvtColor(self.color_image, cv2.COLOR_BGR2RGB)
+                    #self.color_image = cv2.cvtColor(self.color_image, cv2.COLOR_BGR2RGB)
                     #print("Finish all")
                 except Exception as e:
+                    print("eee")
                     print(e)
+            #print("4")
             try:    
                 convertToQtFormat = QtGui.QImage(self.color_image.data, w, h, bytesPerLine, QtGui.QImage.Format_RGB888)
                 p = convertToQtFormat.scaled(1280, 720, Qt.KeepAspectRatio)
@@ -204,6 +282,12 @@ class Thread(QThread):
 
     def setFinish(self):
         self.yolo_t.is_detect=True
+    
+    def setAlwaysDetect(self):
+        if self.yolo_t.is_always_detect==True:
+            self.yolo_t.is_always_detect=False
+        else:
+            self.yolo_t.is_always_detect=True
 
     def obj_thread(self, data):
         th=threading.Thread(target = self.updateObj, args = (data[0], data[1]))
@@ -212,22 +296,25 @@ class Thread(QThread):
     def updateObj(self,detection,img):
         name=[]
         pos=[]
-        for item in detection:
+        time.sleep(1)
+        if detection!=None and self.beforeResult!=detection:
             try:
-                x, y, w, h = item[2][0],\
-                item[2][1],\
-                item[2][2],\
-                item[2][3]
-                xmin, ymin, xmax, ymax = yolov3.convertBack(
-                float(x), float(y), float(w), float(h),img.shape[1]/darknet.network_width(yolov3.netMain),img.shape[0]/darknet.network_height(yolov3.netMain))
-                image=img[ymin:ymax,xmin:xmax]
-                pos.append([int((xmin+xmax)/2),int((ymin+ymax)/2)])
-                name.append(qrcode.decodePic(image)[0].data)
-                print("item is "+str(name[len(name)-1]))
+                for item in detection:
+                    x, y, w, h = item[2][0],\
+                    item[2][1],\
+                    item[2][2],\
+                    item[2][3]
+                    xmin, ymin, xmax, ymax = yolov3.convertBack(
+                    float(x), float(y), float(w), float(h),img.shape[1]/darknet.network_width(yolov3.netMain),img.shape[0]/darknet.network_height(yolov3.netMain))
+                    image=img[ymin:ymax,xmin:xmax]
+                    pos.append([int((xmin+xmax)/2),int((ymin+ymax)/2)])
+                    name.append(qrcode.decodePic(image)[0].data.decode())
+                    #print("item is "+str(name[len(name)-1]))
             except Exception as e:
-                print(e)
-            
-        self.addNewObj.emit(name,pos)
+                print("hi")
+                    #print(e)
+            self.beforeResult=detection
+            self.addNewObj.emit(name,pos)
             
 
         
@@ -310,6 +397,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
 
         self.btn_correct.clicked.connect(self.run_thread)
         self.btn_detect.clicked.connect(self.single_detect)
+        self.btn_always_detect.clicked.connect(self.always_detect)
         self.btn_grp.buttonClicked[int].connect(self.get_items)
 
         self.streampopup = MyPopup()
@@ -331,6 +419,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
     def single_detect(self):
         self.th.setFinish()
 
+    def always_detect(self):
+        self.th.setAlwaysDetect()
+
     def save_img(self):
         global signal
         signal.sig.emit()
@@ -348,6 +439,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
             self.lineEdit_3.setText(_translate("Form", str(self.user_set_pos[index][2])))
             self.lineEdit_4.setText(_translate("Form", str(self.user_set_pos[index][3])))
         except Exception as e:
+            print("hahaha")
             print(e)
 
     def set_time(self,content):
@@ -399,11 +491,14 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
 
     def add_obj(self,name,objList):
         _translate = QtCore.QCoreApplication.translate
-        for obj in self.objArr:
-            for items in obj:
-                items.deleteLater()
-                self.objLayout.removeWidget(items)
-        del self.btn_grp
+        try:
+            for obj in self.objArr:
+                for items in obj:
+                    items.deleteLater()
+                    self.objLayout.removeWidget(items)
+            del self.btn_grp
+        except Exception as e:
+            print(e)
         self.btn_grp=QButtonGroup(self)
         self.btn_grp.setExclusive(True)
         self.btn_grp.buttonClicked[int].connect(self.get_items)

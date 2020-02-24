@@ -31,8 +31,15 @@ def cvDrawBoxes(detections, img):
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             #cv2.imshow('obj'+str(i), image)
             cv2.rectangle(img, pt1, pt2, (0, 255, 0), 1)
-            cv2.putText(img,
+            if type(detection[0])!=str:
+                cv2.putText(img,
                         detection[0].decode() +
+                        " [" + str(round(detection[1] * 100, 2)) + "]",
+                        (pt1[0], pt1[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                        [0, 255, 0], 2)
+            else:
+                cv2.putText(img,
+                        detection[0]+
                         " [" + str(round(detection[1] * 100, 2)) + "]",
                         (pt1[0], pt1[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
                         [0, 255, 0], 2)
