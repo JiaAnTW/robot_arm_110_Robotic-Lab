@@ -9,9 +9,9 @@ import threading
 from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QVBoxLayout
 from PyQt5.QtGui import QPixmap, QImage 
 from PyQt5.QtCore import  QObject, QThread, pyqtSignal, Qt, QMutex
-import darknet
+#import darknet
 import qrcode
-import yolov3
+#import yolov3
 
 try:
     from pydobot import Dobot
@@ -36,7 +36,6 @@ class MySignal(QObject):  # global signal
 
 signal = MySignal()
 
-#global 
 
 
 
@@ -70,60 +69,7 @@ class yolo_Thread(QThread):
                 print(e)
 
                 
-                
 
-    
-
-
-class correct_Thread(QThread):
-    def run(self):
-        
-        self.correct()
-
-    def set_device(self,device):
-        self.device = device
-    def save_img(self):
-        global signal
-        signal.sig.emit()    
-    def correct(self):
-        (x, y, z, r, j1, j2, j3, j4) = (260,0,60,0,0,45,45,0)
-        pos=[]
-        def print_data():
-            time.sleep(2)
-            (x1, y1, z1, r1, j11, j21, j31, j41) = self.device.pose()
-            self.save_img()
-            pos.append((x1, y1, z1, r1, j11, j21, j31, j41))
-            print("("+str(x1)+"  ,  "+str(y1)+"  ,  "+str(z1)+"  ,  "+str(j11)+"  ,  "+str(j21)+"  ,  "+str(j31)+"  ,  "+str(j41)+")\n")
-            time.sleep(1)
-
-        indexArr=[]
-        i=1.2
-        for k in range(2) :
-            indexArr.append((x+15*i,y,z,r))
-            indexArr.append((x-10*i,y,z,r))
-            indexArr.append((x+10*i,y-15*i,z+15*i,r))
-            indexArr.append((x,y+20*i,z,r))
-            indexArr.append((x,y-20*i,z,r))
-            indexArr.append((x+10*i,y+15*i,z+15*i,r))
-            indexArr.append((x-15*i,y+20*i,z+15*i,r))
-            indexArr.append((x-15*i,y-10*i,z+15*i,r))
-            i+=1
-
-        for index in indexArr:
-            self.device.move_to(index[0], index[1], index[2], index[3], wait=True)
-            print_data()
-
-        self.device.move_to(x, y,z, r, wait=True)
-        print_data()
-        
-        with open('pos.txt', 'w') as f:
-            for item in pos:
-                f.write(str(item))
-                f.write("\n")
-
-        self.device.move_to(x, y, z, r, wait=True)
-        time.sleep(1)    
-        
 
 
 class Thread(QThread):
@@ -230,44 +176,14 @@ class Thread(QThread):
 
         
 
-class MyPopup(QDialog, Ui_dialog):
-
-    def __init__(self, parent=None):
-        super(MyPopup, self).__init__(parent)
-        self.setupUi(self)
-        self.label.resize(1280,720)
-        self.label.move(0,0)
-
-        self.btn_save.clicked.connect(self.save_img)
-        self.show()
-        
-    def mousePressEvent(self, event):
-        x = event.x()
-        y = event.y()
-        if x <= 1280 and y <= 720:
-            #print (x,y)
-            self.label_X.setText(str(x))
-            self.label_Y.setText(str(y))
-            self.update()
-
-
-    def save_img(self):
-        global signal
-        signal.sig.emit()
-        
-        
-    @QtCore.pyqtSlot(QtGui.QImage) 
-    def setImage(self, image):
-        self.label.setPixmap(QPixmap.fromImage(image))
-        self.update()
-
 
 class MainWindow(QtWidgets.QMainWindow, Ui_Form):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent=parent)
         self.setupUi(self)
 
-        self.onBindingUi()
+        self.x = 640.0
+        self.y = 360.0
         self.user_set_pos=[(0,0,0,0)]
         print("開始自動尋找dobot所在的port\n")
         self._connect_dobot(0)
@@ -290,37 +206,130 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
                 print("連接失敗，請檢查是否有將dobot接上USB")
 
 
+    #compute (u,v) to real world corrdinate space
+    def trans(self):
+        #u = 797
+        #v = 419.0
+        
+        u = self.x 
+        v = self.y 
+
+        X = np.array([[u, v, 1.0]]).reshape(1,3)
+
+        M = np.array([[ 3.07210472e-03,-3.68102103e-01, 0.00000000e+00],
+                    [-3.74686041e-01, -6.87139754e-03, -2.16840434e-18],
+                    [ 4.06011267e+02,  2.64299383e+02,  1.00000000e+00] ])
+        
+        result = X.dot(M)
+        #print(result)
+        #we use fixed depth for now
+        self.device.move_to(result[0][0],result[0][1],-100.0, 0.0 , wait = True) 
+
+
     def _init_ui_connect(self):
         _translate = QtCore.QCoreApplication.translate
-        self.btn_go.clicked.connect(self._set_user_set_pos)   #get data
-        self.btn_reset.clicked.connect(self.action)
+        self.btn_new.clicked.connect(self._set_user_set_pos)   #get data
+
+        self.btn_move.clicked.connect(self.action)
+        self.btn_go.clicked.connect(self.trans)
+
+
         self.comboBox.insertItem(0,"點1")
         self.lineEdit.textEdited.connect(self.set_time)
-        self.lineEdit_1.textEdited.connect(self.set_x)
-        self.lineEdit_2.textEdited.connect(self.set_y)
-        self.lineEdit_3.textEdited.connect(self.set_z)
-        self.lineEdit_4.textEdited.connect(self.set_r)
+        self.X_edit.textEdited.connect(self.set_x)
+        self.Y_edit.textEdited.connect(self.set_y)
+        self.Z_edit.textEdited.connect(self.set_z)
+        self.R_edit.textEdited.connect(self.set_r)
         self.comboBox.currentIndexChanged.connect(self.switch_point)
+        
         self.lineEdit.setText(_translate("Form", str(2)))
 
-        self.btn_correct.clicked.connect(self.run_thread)
-        self.btn_detect.clicked.connect(self.single_detect)
 
-        self.streampopup = MyPopup()
-        self.streampopup.show()
-        self.setWindowFlags(
-            Qt.WindowStaysOnTopHint)
-
-        self.th = Thread(self)
-        self.th.changePixmap.connect(self.streampopup.setImage)
-        self.th.addNewObj.connect(self.add_obj)
-        self.th.start()
 
         
-        for x in range(3):
-            self.gridLayout_2.setColumnStretch(x, x+1)
+
+        
+        #self.btn_detect.clicked.connect(self.single_detect)
+
+        #button.clicked.connect(lambda: calluser(name))
+        self.interval = 1
+        self.input_interval.textEdited.connect(self.set_inputinterval)
+        self.btn_x_increase.clicked.connect(lambda: self.move_xyz(self.interval, 0, 0))
+        self.btn_x_reduce.clicked.connect(lambda: self.move_xyz(-self.interval, 0, 0))
+        self.btn_y_increase.clicked.connect(lambda: self.move_xyz(0, self.interval, 0))
+        self.btn_y_reduce.clicked.connect(lambda: self.move_xyz(0, -self.interval, 0))
+        self.btn_z_increase.clicked.connect(lambda: self.move_xyz(0, 0, self.interval))
+        self.btn_z_reduce.clicked.connect(lambda: self.move_xyz(0, 0, -self.interval))
+
+        self.btn_return.clicked.connect(self.return_ori)
+
+
+
+        self.th = Thread(self)
+        self.th.changePixmap.connect(self.setImage)
+        self.th.addNewObj.connect(self.add_obj)
+        self.th.start()
+        
+        
+        self.stream_label.resize(1280,720)
+        self.stream_label.move(0,0)
+
+        self.btn_save.clicked.connect(self.save_img)
+
+
+        
+        self.btn_suck.clicked.connect(self.run_suck)
+        self.btn_free.clicked.connect(self.free)
+
+
+    def run_suck(self):
+        self.device.grip(True)
+        
+    def free(self):
+        #self.device.grip(False)
+        self.device.suck(False) 
+        
+
+
+    # go to initinal position
+    def return_ori(self):
+        (x, y, z) = self.get_pos()   
+        self.device.move_to(211.9, y, z, 0.0) 
+
+        self.device.move_to(211.9, 1.1, z, 0.0) 
+
+        self.device.move_to(211.9, 1.1, 172.64, 0.0) 
+        #211.9810 1.1234 172.8245 0.3037
+
+
+        
+    def mousePressEvent(self, event):
+        self.x = event.x()
+        self.y = event.y()
+        if self.x <= 1280 and self.y <= 720:
+            #print (x,y)
+            self.label_X.setText(str(self.x))
+            self.label_Y.setText(str(self.y))
+            self.update()
+
+
+    def save_img(self):
+        global signal
+        signal.sig.emit()
+        
+        
+    @QtCore.pyqtSlot(QtGui.QImage) 
+    def setImage(self, image):
+        self.stream_label.setPixmap(QPixmap.fromImage(image))
+        self.update()
+
+    def set_inputinterval(self, content):
+        
+        self.interval = float(content)
+      
     def closeEvent(self, event):
         self.th.stop()
+
 
     def single_detect(self):
         self.th.setFinish()
@@ -329,10 +338,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         global signal
         signal.sig.emit()
         
-    def run_thread(self):
-        t = correct_Thread(self)
-        t.set_device(self.device)
-        t.start()
     
     def switch_point(self,index):
         try:
@@ -350,7 +355,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         except Exception as e:
             print("輸入格式錯誤")
             print(e)
-
 
 
     def set_x(self,content):
@@ -414,23 +418,24 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
     def get_pos(self):
         _translate = QtCore.QCoreApplication.translate
         try:
-            (x,y,z,r,j1,j2,j3,j4)=self.device.pose()
+            (x, y, z, r, j1, j2, j3, j4)=self.device.pose()
             self.user_set_pos[0]=(x,y,z,r)
         except Exception as e:
             self.user_set_pos[0]=(0,0,0,0)
 
         pos=self.user_set_pos[0]
-        self.label_1.setText(_translate("Form", str(round(pos[0],5))))
-        self.lineEdit_1.setText(_translate("Form", str(round(pos[0],5))))
+        self.X_output.setText(_translate("Form", str(round(pos[0],5))))
+        self.X_edit.setText(_translate("Form", str(round(pos[0],5))))
 
-        self.label_5.setText(_translate("Form", str(round(pos[1],5))))
-        self.lineEdit_2.setText(_translate("Form", str(round(pos[1],5))))
+        self.Y_output.setText(_translate("Form", str(round(pos[1],5))))
+        self.Y_edit.setText(_translate("Form", str(round(pos[1],5))))
 
-        self.label_6.setText(_translate("Form", str(round(pos[2],5))))
-        self.lineEdit_3.setText(_translate("Form", str(round(pos[2],5))))
+        self.Z_output.setText(_translate("Form", str(round(pos[2],5))))
+        self.Z_edit.setText(_translate("Form", str(round(pos[2],5))))
 
-        self.label_7.setText(_translate("Form", str(round(pos[3],5))))
-        self.lineEdit_4.setText(_translate("Form", str(round(pos[3],5))))
+        self.R_output.setText(_translate("Form", str(round(pos[3],5))))
+        self.R_edit.setText(_translate("Form", str(round(pos[3],5))))
+        return (x,y,z)
 
     def action(self):
         test=[]
@@ -460,11 +465,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
             print(str(self.user_set_pos))
         except Exception as e:
             print("輸入格式錯誤")
-            print("錯誤訊息： "+str(e))  
-    
-    def onBindingUi(self):
-        pass
-    
+            print("錯誤訊息： "+str(e)) 
+
+    def move_xyz(self, x_, y_, z_):
+        (x,y,z) = self.get_pos()   
+        self.device.move_to(x+ x_, y +y_, z+z_, 0.0 , wait= True) 
 
     
 
@@ -472,6 +477,5 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     w = MainWindow()
-    #w = MyPopup()
     w.show()
     sys.exit(app.exec_())

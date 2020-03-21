@@ -1,36 +1,38 @@
-import sys
-#sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages') #解決安裝ROS 造成import opencv 出現error的問題
-
-import pyrealsense2 as rs
-import numpy as np
 import cv2
- 
-pipeline = rs.pipeline()
-config = rs.config()
-#config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 30)
-config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
- 
-pipeline.start(config)
-i = 1
-try:
-    while True:
-        frames = pipeline.wait_for_frames()
-        color_frame = frames.get_color_frame()
-        if  not color_frame:
-            continue
-        color_image = np.asanyarray(color_frame.get_data())
- 
-        cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
-        cv2.imshow('RealSense', color_image)
+import numpy as np
+import glob
+
+
+
+criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 15, 0.001)
+
+w = 11
+h = 8
+# 世界坐标系中的棋盘格点,例如(0,0,0), (1,0,0), (2,0,0) ....,(8,5,0)，去掉Z坐标，记为二维矩阵
+objp = np.zeros((w*h,3), np.float32)
+objp[:,:2] = np.mgrid[0:w,0:h].T.reshape(-1,2)
+
+objpoints = [] # 在世界坐标系中的三维点
+imgpoints = [] # 在图像平面的二维点
+
+images = glob.glob('./4.jpg')
+for fname in images:
+    img = cv2.imread(fname)
+    gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+    # 找到棋盘格角点
+    ret, corners = cv2.findChessboardCorners(gray, (w,h),None)
+    # 如果找到足够点对，将其存储起来
+    if ret == True:
+        cv2.cornerSubPix(gray,corners,(11,11),(-1,-1), criteria)
         
-        key = cv2.waitKey(1)
-        
-        if key & 0xFF == ord('s') :
-            cv2.imwrite(str(i)+'.jpg', color_image)
-            i = i + 1
-            
-        if key & 0xFF == ord('q') or key == 27:
-            cv2.destroyAllWindows()
-            break
-finally:
-    pipeline.stop()
+        objpoints.append(objp)
+        imgpoints.append(corners)
+        print(corners)
+        # 将角点在图像上显示
+
+        cv2.drawChessboardCorners(img, (w,h), corners, ret)
+        cv2.imshow('findCorners',img)
+        cv2.waitKey(100)
+cv2.destroyAllWindows()
+# 标定
+ret, mtx, dist, r, T_plane2cam = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
