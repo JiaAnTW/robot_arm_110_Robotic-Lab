@@ -6,12 +6,12 @@ import sys
 
 import time
 import threading
-from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QVBoxLayout
+from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QVBoxLayout,QButtonGroup
 from PyQt5.QtGui import QPixmap, QImage 
 from PyQt5.QtCore import  QObject, QThread, pyqtSignal, Qt, QMutex
-#import darknet
+import darknet
 import qrcode
-#import yolov3
+import yolov3
 
 try:
     from pydobot import Dobot
@@ -67,9 +67,6 @@ class yolo_Thread(QThread):
             except Exception as e:
                 print("stop during thread pool")
                 print(e)
-
-                
-
 
 
 class Thread(QThread):
@@ -173,7 +170,40 @@ class Thread(QThread):
             
         self.addNewObj.emit(name,detection)
             
+                
+class MyPopup(QDialog, Ui_dialog):
 
+    def __init__(self, parent=None,dobot=None):
+        super(MyPopup, self).__init__(parent)
+        self.setupUi(self)
+        self.btn_grp = QButtonGroup(self)
+        self.btn_grp.setExclusive(True)
+        #self.btn_correct.clicked.connect(self.run_thread)
+        self.btn_detect.clicked.connect(dobot.single_detect)
+        self.btn_always_detect.clicked.connect(dobot.always_detect)
+        self.btn_grp.buttonClicked[int].connect(dobot.get_items)
+        self.objArr=[]
+        self.show()
+    
+    def add_obj(self,name,objList):
+        _translate = QtCore.QCoreApplication.translate
+        for obj in self.objArr:
+            for items in obj:
+                del items
+        self.objArr=[]
+        j=0
+        for obj in objList:
+            self.objArr.append([
+                    QtWidgets.QLabel(self.objInfoWidget),
+                    QtWidgets.QLabel(self.objInfoWidget),
+                    QtWidgets.QPushButton(self.objInfoWidget),
+                ])
+            for i in range(3):
+                self.objLayout.addWidget(self.objArr[j][i], 2+j, i, 1, 1)
+            self.objArr[j][0].setText(_translate("Form", str(name[j])))
+            self.objArr[j][1].setText(_translate("Form", str(obj[2])))
+            self.objArr[j][2].setText(_translate("Form", "抓取"))
+            j+=1
         
 
 
@@ -245,7 +275,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         self.lineEdit.setText(_translate("Form", str(2)))
 
 
-
+        self.streampopup = MyPopup(dobot=self)
+        self.streampopup.show()
+        self.setWindowFlags(Qt.WindowStaysOnTopHint)
         
 
         
@@ -280,6 +312,29 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         
         self.btn_suck.clicked.connect(self.run_suck)
         self.btn_free.clicked.connect(self.free)
+
+    def add_obj(self,name,objList):
+        self.streampopup.add_obj(name,objList)
+
+    def get_items(self,idi):
+        
+        btn_id=idi
+        print("id is "+str(btn_id))
+        print("click "+str(btn_id))
+        x=self.nowItem[btn_id]["pos"][0]
+        y=self.nowItem[btn_id]["pos"][1]
+        print("go to "+str(x)+" "+str(y))
+
+        ##在這裡做座標轉換
+        y1=float(-55*x/228+204.1228)
+        x1=float(-5*y/19+414.4737)
+        ##在上面做座標轉換
+
+        self.device.move_to(x1, y1, -20, 0, wait=True)
+        self.run_suck()
+        time.sleep(1)
+        self.device.move_to(260, 0, 100, 0, wait=True)
+        self.free
 
 
     def run_suck(self):
@@ -394,26 +449,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         except Exception as e:
             print("輸入格式錯誤")
             print(e)
-
-    def add_obj(self,name,objList):
-        _translate = QtCore.QCoreApplication.translate
-        for obj in self.objArr:
-            for items in obj:
-                del items
-        self.objArr=[]
-        j=0
-        for obj in objList:
-            self.objArr.append([
-                    QtWidgets.QLabel(self.objInfoWidget),
-                    QtWidgets.QLabel(self.objInfoWidget),
-                    QtWidgets.QPushButton(self.objInfoWidget),
-                ])
-            for i in range(3):
-                self.objLayout.addWidget(self.objArr[j][i], 2+j, i, 1, 1)
-            self.objArr[j][0].setText(_translate("Form", str(name[j])))
-            self.objArr[j][1].setText(_translate("Form", str(obj[2])))
-            self.objArr[j][2].setText(_translate("Form", "抓取"))
-            j+=1
     
     def get_pos(self):
         _translate = QtCore.QCoreApplication.translate
@@ -421,6 +456,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
             (x, y, z, r, j1, j2, j3, j4)=self.device.pose()
             self.user_set_pos[0]=(x,y,z,r)
         except Exception as e:
+            (x,y,z)=(0,0,0)
             self.user_set_pos[0]=(0,0,0,0)
 
         pos=self.user_set_pos[0]
