@@ -299,6 +299,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         self.device.move_to(211.9, 1.1, z, 0.0) 
 
         self.device.move_to(211.9, 1.1, 172.64, 0.0) 
+        self.get_pos()
         #211.9810 1.1234 172.8245 0.3037
 
 
