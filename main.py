@@ -79,8 +79,10 @@ class Thread(QThread):
         signal.sig.connect(self.save_img)
         self.pipeline = rs.pipeline()
         self.config = rs.config()
-        #config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 30)
+
+        self.config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 30)
         self.config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
+
         self.pipeline.start(self.config)
         detection_result=None
         is_Finish=True
@@ -91,12 +93,17 @@ class Thread(QThread):
         while True:
             frames = self.pipeline.wait_for_frames()
             color_frame = frames.get_color_frame()
-            if  not color_frame:
+            self.depth_frame = frames.get_depth_frame()
+
+            if  not color_frame or not self.depth_frame:
                 continue
 
             self.color_image = np.asanyarray(color_frame.get_data())
+            
             self.img = self.color_image
             h, w, ch = self.color_image.shape
+
+            
             bytesPerLine = ch * w
            
             
@@ -133,6 +140,9 @@ class Thread(QThread):
                 print("stop after detect")
                 print(e)
 
+    def get_depth(self, x ,y):
+        dist = self.depth_frame.get_distance(x, y)
+        print (dist)
 
         
     def save_img(self):
@@ -178,9 +188,10 @@ class MyPopup(QDialog, Ui_dialog):
         self.setupUi(self)
         self.btn_grp = QButtonGroup(self)
         self.btn_grp.setExclusive(True)
-        #self.btn_correct.clicked.connect(self.run_thread)
+        
         self.btn_detect.clicked.connect(dobot.single_detect)
-        self.btn_always_detect.clicked.connect(dobot.always_detect)
+        #self.btn_always_detect.clicked.connect(dobot.always_detect)
+
         self.btn_grp.buttonClicked[int].connect(dobot.get_items)
         self.objArr=[]
         self.show()
@@ -240,6 +251,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
     def trans(self):
         #u = 797
         #v = 419.0
+
+        (x,y,z) = self.get_pos()
+        print(x)
+        print(y)
+        print(z)
         
         u = self.x 
         v = self.y 
@@ -362,6 +378,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
     def mousePressEvent(self, event):
         self.x = event.x()
         self.y = event.y()
+
+        # get depth 
+        self.th.get_depth(self.x, self.y)
+
         if self.x <= 1280 and self.y <= 720:
             #print (x,y)
             self.label_X.setText(str(self.x))
@@ -385,6 +405,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
       
     def closeEvent(self, event):
         self.th.stop()
+        self.streampopup.quit()
 
 
     def single_detect(self):
@@ -418,8 +439,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
             tmp=self.user_set_pos[self.comboBox.count()-1]
             print(tmp)
             (x, y, z, r) =tmp
-            print(content)
             self.user_set_pos[self.comboBox.count()-1]=(float(content),y,z,r)
+            print(content)
         except Exception as e:
             print("輸入格式錯誤")
             print(e)
