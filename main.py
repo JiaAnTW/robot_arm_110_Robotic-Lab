@@ -277,18 +277,31 @@ class MyPopup(QDialog, Ui_dialog):
         
         self.btn_detect.clicked.connect(dobot.single_detect)
         self.btn_always_detect.clicked.connect(dobot.always_detect)
-
+        self.dobot=dobot
         self.btn_grp.buttonClicked[int].connect(dobot.get_items)
         self.objArr=[]
         self.show()
     
     def add_obj(self,name,objList):
+        if(len(objList)==0):
+            return
         _translate = QtCore.QCoreApplication.translate
-        for obj in self.objArr:
-            for items in obj:
-                del items
+        try:
+            for obj in self.objArr:
+                for items in obj:
+                    items.deleteLater()
+                    self.objLayout.removeWidget(items)
+            del self.btn_grp
+        except Exception as e:
+            print(e)
+        self.btn_grp=QButtonGroup(self)
+        self.btn_grp.setExclusive(True)
+        self.btn_grp.buttonClicked[int].connect(self.dobot.get_items)
         self.objArr=[]
         j=0
+        self.dobot.nowItem=[]
+        if objList==[]:
+            return
         for obj in objList:
             self.objArr.append([
                     QtWidgets.QLabel(self.objInfoWidget),
@@ -297,10 +310,18 @@ class MyPopup(QDialog, Ui_dialog):
                 ])
             for i in range(3):
                 self.objLayout.addWidget(self.objArr[j][i], 2+j, i, 1, 1)
-            self.objArr[j][0].setText(_translate("Form", str(name[j])))
-            self.objArr[j][1].setText(_translate("Form", str(obj[2])))
+            try:
+                self.objArr[j][0].setText(_translate("Form", str(name[j])))
+                self.nowItem.append({"name":name[j],"pos":obj})
+            except:
+                self.objArr[j][0].setText(_translate("Form", "不明物"))
+                self.dobot.nowItem.append({"name":"不明物","pos":obj})
+            self.objArr[j][1].setText(_translate("Form", str(obj)))
             self.objArr[j][2].setText(_translate("Form", "抓取"))
+            self.btn_grp.addButton(self.objArr[j][2],j)
+            #self.objArr[j][2].click.connect(self.get_items)    
             j+=1
+    
         
 
 
@@ -314,6 +335,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         self.user_set_pos=[(0,0,0,0)]
         print("開始自動尋找dobot所在的port\n")
         self._connect_dobot(0)
+        self.return_ori()
         self._init_ui_connect()
         self.get_pos()
         self.waitTime=2
@@ -367,7 +389,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
 
         self.btn_move.clicked.connect(self.action)
         self.btn_go.clicked.connect(self.trans)
-
+        
 
         self.comboBox.insertItem(0,"點1")
         self.lineEdit.textEdited.connect(self.set_time)
@@ -430,16 +452,28 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         y=self.nowItem[btn_id]["pos"][1]
         print("go to "+str(x)+" "+str(y))
 
-        ##在這裡做座標轉換
-        y1=float(-55*x/228+204.1228)
-        x1=float(-5*y/19+414.4737)
-        ##在上面做座標轉換
+        u = x 
+        v = y 
 
-        self.device.move_to(x1, y1, -20, 0, wait=True)
+        X = np.array([[u, v, 1.0]]).reshape(1,3)
+
+        M = np.array([[ 3.07210472e-03,-3.68102103e-01, 0.00000000e+00],
+                    [-3.74686041e-01, -6.87139754e-03, -2.16840434e-18],
+                    [ 4.06011267e+02,  2.64299383e+02,  1.00000000e+00] ])
+
+        result = X.dot(M)
+        #print(result)
+        #we use fixed depth for now
+        self.device.move_to(result[0][0],result[0][1],-70.0, 0.0 , wait = True) 
+        time.sleep(2)
         self.run_suck()
         time.sleep(1)
-        self.device.move_to(260, 0, 100, 0, wait=True)
-        self.free
+        self.return_ori()
+        time.sleep(2)
+        self.device.move_to(result[0][0],result[0][1],-65.0, 0.0 , wait = True) 
+        self.free()
+        time.sleep(2)
+        self.return_ori()
 
 
     def run_suck(self):
@@ -454,9 +488,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
     # go to initinal position
     def return_ori(self):
         (x, y, z) = self.get_pos()   
-        self.device.move_to(211.9, y, z, 0.0) 
+        self.device.move_to(x, y, z+20, 0.0) 
+        self.device.move_to(211.9, y, z+20, 0.0) 
 
-        self.device.move_to(211.9, 1.1, z, 0.0) 
+        self.device.move_to(211.9, 1.1, z+20, 0.0) 
 
         self.device.move_to(211.9, 1.1, 172.64, 0.0) 
         self.get_pos()
