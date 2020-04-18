@@ -387,6 +387,45 @@
     <string>return</string>
    </property>
   </widget>
+  <widget class="QPushButton" name="btn_update_loc">
+   <property name="geometry">
+    <rect>
+     <x>1330</x>
+     <y>390</y>
+     <width>174</width>
+     <height>42</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>update</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_rotate_j1_90">
+   <property name="geometry">
+    <rect>
+     <x>1330</x>
+     <y>460</y>
+     <width>174</width>
+     <height>42</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>rotate_j1</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_reverse">
+   <property name="geometry">
+    <rect>
+     <x>1330</x>
+     <y>530</y>
+     <width>174</width>
+     <height>42</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>reverse</string>
+   </property>
+  </widget>
  </widget>
  <resources/>
  <connections/>

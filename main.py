@@ -1,9 +1,10 @@
 #sudo chmod 666 /dev/ttyUSB0
+#21.8
 from ui import *
 from dialog import *
 import sys
 #sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages') #解決安裝ROS 造成import opencv 出現error的問題
-from socket import *
+
 import time
 import threading
 from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QVBoxLayout,QButtonGroup
@@ -43,33 +44,19 @@ class yolo_Thread(QThread):
     addNewObj= pyqtSignal(list)
     def run(self):
         self.is_Finish=True
-        self.i=0
         self.is_img=False
         self.is_detect=False
-        self.is_always_detect=False
         self.detection_img=None 
         self.fin_mutex=QMutex()
         self.img_mutex=QMutex()
         self.det_mutex=QMutex() 
-        self.detection_result=None
-        yolov3.YOLO()
-        threading.Thread(target = self.initSocket())
+        self.detection_result=None 
+        yolov3.YOLO() 
         while True:
             try:
                 if self.is_img==True :
-                    #print("let's detect!")
-                    #detections=yolov3.detect_box(self.detection_img)
-                    if self.is_always_detect==True:
-                        try:
-                            cv2.imwrite("target.jpg", self.detection_img)
-                            self.i=1
-                            detections=self.sendData()
-                        except Exception as e:
-                            print("沒有連接到socket,將無法開啟即時偵測功能")
-                            self.is_always_detect=False
-                            print(e)
-                    elif self.is_detect==True:
-                        detections=yolov3.detect_box(self.detection_img)
+                    print("let's detect!")
+                    detections=yolov3.detect_box(self.detection_img)
                     self.img_mutex.lock()
                     self.is_Finish=True
                     self.is_img=False
@@ -77,73 +64,10 @@ class yolo_Thread(QThread):
                     self.img_mutex.unlock()
                     self.detection_img=None
                     self.detection_result=detections
-                    #print("done")
                     
             except Exception as e:
                 print("stop during thread pool")
                 print(e)
-    
-    def initSocket(self):
-        HOST=''
-        PORT = 8888
-        ADDR = (HOST,PORT)
-        self.tcpSerSock = socket(AF_INET, SOCK_STREAM)  
-        self.tcpSerSock.bind(ADDR)
-        self.tcpSerSock.listen()
-        print('wating for connection...')
-        self.tcpCliSock,self.addr = self.tcpSerSock.accept()
-
-        print( '...connected from:',self.addr)
-        BUFSIZE = 1024
-        data = self.tcpCliSock.recv(BUFSIZE)
-        #print (data)
-        #self.tcpSerSock.setblocking(False)
-        #self.tcpCliSock.setblocking(False)
-        
-    
-    def sendData(self):
-        try:
-            if (self.is_Finish==False):
-                import os
-                os.system("cp target.jpg /media/sf_winLinux/project")
-                data="test"
-                BUFSIZE = 1024
-                self.tcpCliSock.send(data.encode())
-                #print("here")
-                #time.sleep(1.5)
-                data = self.tcpCliSock.recv(BUFSIZE)
-                data=str(data)
-                #print ("123") 
-                return self.handleString(data)
-        except Exception as e:
-            print("error during send and recv socket")
-            print(e)
-            return []
-
-    def handleString(self,obj):
-        try:
-            strArr=obj.split("'")
-            #print(obj)
-            name=strArr[1]
-            strArr[2]=strArr[2].replace("(", "")
-            strArr[2]=strArr[2].replace(")", "")
-            strArr[2]=strArr[2].replace("]", "")
-            strArr[2]=strArr[2].replace("\"", "")
-            strArr[2]=strArr[2].split(",")
-            strArr[2].pop(0)
-            for items in strArr[2]:
-                items=float(items)
-            data=[(name,float(strArr[2][0]),
-            (float(strArr[2][1]),float(strArr[2][2]),float(strArr[2][3]),float(strArr[2][4])))]
-            return data
-        except Exception as e:
-            print("error handle string from socket")
-            print("data is "+obj)
-            print(e)
-            return []            
-
-    def _del_(self):      
-        self.tcpCliSock.close() 
 
 
 class Thread(QThread):
@@ -156,9 +80,10 @@ class Thread(QThread):
         signal.sig.connect(self.save_img)
         self.pipeline = rs.pipeline()
         self.config = rs.config()
-        self.beforeResult=[]
-        #config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 30)
+
+        self.config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 30)
         self.config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
+
         self.pipeline.start(self.config)
         detection_result=None
         is_Finish=True
@@ -169,21 +94,25 @@ class Thread(QThread):
         while True:
             frames = self.pipeline.wait_for_frames()
             color_frame = frames.get_color_frame()
-            if  not color_frame:
+            self.depth_frame = frames.get_depth_frame()
+
+            if  not color_frame or not self.depth_frame:
                 continue
-            #print("1")
+
             self.color_image = np.asanyarray(color_frame.get_data())
+            
             self.img = self.color_image
             h, w, ch = self.color_image.shape
+
+            
             bytesPerLine = ch * w
            
-            #print("2")
+            
             cv2.cvtColor(self.color_image, cv2.COLOR_RGB2BGR, self.color_image)
             #cv2.COLOR_RGB2BGR
             #print("is detect is "+str(self.yolo_t.is_detect)+", img is "+str(self.yolo_t.is_Finish))
-            if (self.yolo_t.is_detect==True or self.yolo_t.is_always_detect==True) and self.yolo_t.is_Finish==True:
+            if self.yolo_t.is_detect==True and self.yolo_t.is_Finish==True:
                 self.yolo_t.img_mutex.lock()
-                #print("koko")
                 self.yolo_t.is_img=True
                 self.yolo_t.is_detect=False
                 self.yolo_t.detection_img=self.color_image
@@ -191,22 +120,19 @@ class Thread(QThread):
                 self.yolo_t.fin_mutex.lock()
                 self.yolo_t.is_Finish=False
                 self.yolo_t.fin_mutex.unlock()
-            #print("3")
+
             if self.yolo_t.detection_result!=None:
                 try:
-                    #print("123456")
                     self.yolo_t.det_mutex.lock()
                     #print(str(self.yolo_t.detection_result))
                     self.color_image = yolov3.cvDrawBoxes(self.yolo_t.detection_result, self.color_image)
                     #print("yyoyoyo!")
                     self.yolo_t.is_detect=False
                     self.yolo_t.det_mutex.unlock()
-                    #self.color_image = cv2.cvtColor(self.color_image, cv2.COLOR_BGR2RGB)
+                    self.color_image = cv2.cvtColor(self.color_image, cv2.COLOR_BGR2RGB)
                     #print("Finish all")
                 except Exception as e:
-                    print("eee")
                     print(e)
-            #print("4")
             try:    
                 convertToQtFormat = QtGui.QImage(self.color_image.data, w, h, bytesPerLine, QtGui.QImage.Format_RGB888)
                 p = convertToQtFormat.scaled(1280, 720, Qt.KeepAspectRatio)
@@ -215,6 +141,14 @@ class Thread(QThread):
                 print("stop after detect")
                 print(e)
 
+    def get_depth(self, x ,y):
+        print("x: "+str(x)+ " y: "+str(y))
+        
+        dist = self.depth_frame.get_distance(x, y)
+        print("depth: ")
+        print (dist)
+        return dist
+        
 
         
     def save_img(self):
@@ -229,12 +163,6 @@ class Thread(QThread):
 
     def setFinish(self):
         self.yolo_t.is_detect=True
-    
-    def setAlwaysDetect(self):
-        if self.yolo_t.is_always_detect==True:
-            self.yolo_t.is_always_detect=False
-        else:
-            self.yolo_t.is_always_detect=True
 
     def obj_thread(self, data):
         th=threading.Thread(target = self.updateObj, args = (data[0], data[1]))
@@ -242,29 +170,21 @@ class Thread(QThread):
 
     def updateObj(self,detection,img):
         name=[]
-        pos=[]
-        if detection ==[]:
-            time.sleep(2)
-            self.beforeResult=detection
-            self.addNewObj.emit(name,pos)
-            return
-        if detection!=None and self.beforeResult!=detection:
-            for item in detection:
-                try:
-                    x, y, w, h = item[2][0],\
-                    item[2][1],\
-                    item[2][2],\
-                    item[2][3]
-                    xmin, ymin, xmax, ymax = yolov3.convertBack(
-                    float(x), float(y), float(w), float(h),img.shape[1]/darknet.network_width(yolov3.netMain),img.shape[0]/darknet.network_height(yolov3.netMain))
-                    image=img[ymin:ymax,xmin:xmax]
-                    pos.append([int((xmin+xmax)/2),int((ymin+ymax)/2)])
-                    name.append(qrcode.decodePic(image)[0].data.decode())
-                    #print("item is "+str(name[len(name)-1]))
-                except Exception as e:
-                    name.append("不明物")
-            self.beforeResult=detection
-            self.addNewObj.emit(name,pos)
+        for item in detection:
+            try:
+                x, y, w, h = item[2][0],\
+                item[2][1],\
+                item[2][2],\
+                item[2][3]
+                xmin, ymin, xmax, ymax = yolov3.convertBack(
+                float(x), float(y), float(w), float(h),img.shape[1]/darknet.network_width(yolov3.netMain),img.shape[0]/darknet.network_height(yolov3.netMain))
+                image=img[ymin:ymax,xmin:xmax]
+                name.append(qrcode.decodePic(image)[0].data)
+                print("item is "+str(name[len(name)-1]))
+            except Exception as e:
+                print(e)
+            
+        self.addNewObj.emit(name,detection)
             
                 
 class MyPopup(QDialog, Ui_dialog):
@@ -276,32 +196,19 @@ class MyPopup(QDialog, Ui_dialog):
         self.btn_grp.setExclusive(True)
         
         self.btn_detect.clicked.connect(dobot.single_detect)
-        self.btn_always_detect.clicked.connect(dobot.always_detect)
-        self.dobot=dobot
+        #self.btn_always_detect.clicked.connect(dobot.always_detect)
+
         self.btn_grp.buttonClicked[int].connect(dobot.get_items)
         self.objArr=[]
         self.show()
     
     def add_obj(self,name,objList):
-        if(len(objList)==0):
-            return
         _translate = QtCore.QCoreApplication.translate
-        try:
-            for obj in self.objArr:
-                for items in obj:
-                    items.deleteLater()
-                    self.objLayout.removeWidget(items)
-            del self.btn_grp
-        except Exception as e:
-            print(e)
-        self.btn_grp=QButtonGroup(self)
-        self.btn_grp.setExclusive(True)
-        self.btn_grp.buttonClicked[int].connect(self.dobot.get_items)
+        for obj in self.objArr:
+            for items in obj:
+                del items
         self.objArr=[]
         j=0
-        self.dobot.nowItem=[]
-        if objList==[]:
-            return
         for obj in objList:
             self.objArr.append([
                     QtWidgets.QLabel(self.objInfoWidget),
@@ -310,18 +217,10 @@ class MyPopup(QDialog, Ui_dialog):
                 ])
             for i in range(3):
                 self.objLayout.addWidget(self.objArr[j][i], 2+j, i, 1, 1)
-            try:
-                self.objArr[j][0].setText(_translate("Form", str(name[j])))
-                self.nowItem.append({"name":name[j],"pos":obj})
-            except:
-                self.objArr[j][0].setText(_translate("Form", "不明物"))
-                self.dobot.nowItem.append({"name":"不明物","pos":obj})
-            self.objArr[j][1].setText(_translate("Form", str(obj)))
+            self.objArr[j][0].setText(_translate("Form", str(name[j])))
+            self.objArr[j][1].setText(_translate("Form", str(obj[2])))
             self.objArr[j][2].setText(_translate("Form", "抓取"))
-            self.btn_grp.addButton(self.objArr[j][2],j)
-            #self.objArr[j][2].click.connect(self.get_items)    
             j+=1
-    
         
 
 
@@ -335,7 +234,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         self.user_set_pos=[(0,0,0,0)]
         print("開始自動尋找dobot所在的port\n")
         self._connect_dobot(0)
-        self.return_ori()
         self._init_ui_connect()
         self.get_pos()
         self.waitTime=2
@@ -355,32 +253,143 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
                 print("連接失敗，請檢查是否有將dobot接上USB")
 
 
-    def always_detect(self):
-        self.th.setAlwaysDetect()
-
     #compute (u,v) to real world corrdinate space
     def trans(self):
-        #u = 797
-        #v = 419.0
+        
 
         (x,y,z) = self.get_pos()
-        print(x)
-        print(y)
-        print(z)
         
         u = self.x 
         v = self.y 
+        print('u')
+        print(u)
+        print('v')
+        print(v)
 
         X = np.array([[u, v, 1.0]]).reshape(1,3)
 
-        M = np.array([[ 3.07210472e-03,-3.68102103e-01, 0.00000000e+00],
-                    [-3.74686041e-01, -6.87139754e-03, -2.16840434e-18],
-                    [ 4.06011267e+02,  2.64299383e+02,  1.00000000e+00] ])
-        
+
+        M = np.array([[ 2.04310618e-04, -3.26572729e-01, 1.30104261e-18],
+                    [-3.32861745e-01, -4.29655952e-03, -4.33680869e-19],
+                    [ 3.76552632e+02, 2.44078479e+02, 1.00000000e+00]])
+
+
         result = X.dot(M)
         #print(result)
         #we use fixed depth for now
-        self.device.move_to(result[0][0],result[0][1],-100.0, 0.0 , wait = True) 
+        
+        #self.device.move_to(191.34018,1.1,172.64001 -, 0.0 , wait = True)
+        if(self.depth == 0.0): 
+            return
+        depth =  self.depth*1000.0 - 65.0
+        depth = 172.64 - depth # + 2.5
+        print("depth:") 
+        print(depth)
+
+        #172.64 - (-67) = 239.64
+        #
+
+        #distance 30.4-6.5 = 23.9
+        self.device.move_to(211.9, 1.1, 172.64, 0.0, wait = True) 
+        self.device.move_to(211.9, 1.1, 130.0, 0.0, wait = True) 
+        self.device.move_to(result[0][0]-2.5,result[0][1]+1.5,depth, 0.0 , wait = True) 
+
+        
+
+
+    # go to initinal position
+    def return_ori(self):
+        (x, y, z) = self.get_pos()   
+        #191.34018, 1.1, 172.64001
+        self.device.move_to(x, y, z+20, 0.0) 
+        self.device.move_to(211.9, y, z+20, 0.0) 
+
+        self.device.move_to(211.9, 1.1, z+20, 0.0) 
+
+        self.device.move_to(211.9, 1.1, 172.64, 0.0) 
+        self.device.move_to(191.34018, 1.1, 172.64, 0.0)
+
+        self.get_pos()
+        
+        #211.9810 1.1234 172.8245 0.3037
+
+    #go back to safe postion
+    # -24.947933197021484, -141.1808624267578,22.64008331298828
+
+#x - 20]
+#(y - 100   x-20)
+    def rotate_90(self):
+        (x, y, z) = self.get_pos() 
+ 
+        y = y- 40
+
+        self.device.move_to(x, y, z, 0.0)
+
+        x = x +80
+        z = z +70
+
+        self.device.move_to(x, y, z, 0.0)
+
+        y = y + 60
+        x = x + 60 
+
+        self.device.move_to(x, y, z, 0.0)
+
+
+        y = y +40
+        x = x +40
+
+        self.device.move_to(x, y, z, 0.0)
+
+        x = x +40
+        y = y +100
+
+        self.device.move_to(x, y, z, 0.0) 
+
+        x = x-20
+        y = y
+        z = z+80
+        self.device.move_to(x, y, z, 0.0)
+
+
+    def rotate_minus90(self):
+        (x, y, z) = self.get_pos() 
+        x = x+20
+        y = y
+        z = z-80
+        self.device.move_to(x, y, z, 0.0) 
+
+        x = x -40
+        y = y-100
+
+        self.device.move_to(x, y, z, 0.0) 
+
+        y = y -40
+        x = x -40
+
+        self.device.move_to(x, y, z, 0.0)
+
+        y = y - 60
+        x = x - 60 
+
+        self.device.move_to(x, y, z, 0.0)
+
+        x = x -80
+        z = z -70
+
+        self.device.move_to(x, y, z, 0.0)
+
+        y = y+ 40
+
+        self.device.move_to(x, y, z, 0.0)
+
+
+
+
+        # x -80
+        # z - 70
+
+        # y +40
 
 
     def _init_ui_connect(self):
@@ -389,7 +398,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
 
         self.btn_move.clicked.connect(self.action)
         self.btn_go.clicked.connect(self.trans)
-        
+
 
         self.comboBox.insertItem(0,"點1")
         self.lineEdit.textEdited.connect(self.set_time)
@@ -400,6 +409,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         self.comboBox.currentIndexChanged.connect(self.switch_point)
         
         self.lineEdit.setText(_translate("Form", str(2)))
+
+        self.btn_rotate_j1_90.clicked.connect(self.rotate_minus90)
+        self.btn_reverse.clicked.connect(self.rotate_90)
 
 
         self.streampopup = MyPopup(dobot=self)
@@ -422,7 +434,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
 
         self.btn_return.clicked.connect(self.return_ori)
 
-
+        self.btn_update_loc.clicked.connect(self.print_location)
 
         self.th = Thread(self)
         self.th.changePixmap.connect(self.setImage)
@@ -452,28 +464,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         y=self.nowItem[btn_id]["pos"][1]
         print("go to "+str(x)+" "+str(y))
 
-        u = x 
-        v = y 
+        ##在這裡做座標轉換
+        y1=float(-55*x/228+204.1228)
+        x1=float(-5*y/19+414.4737)
+        ##在上面做座標轉換
 
-        X = np.array([[u, v, 1.0]]).reshape(1,3)
-
-        M = np.array([[ 3.07210472e-03,-3.68102103e-01, 0.00000000e+00],
-                    [-3.74686041e-01, -6.87139754e-03, -2.16840434e-18],
-                    [ 4.06011267e+02,  2.64299383e+02,  1.00000000e+00] ])
-
-        result = X.dot(M)
-        #print(result)
-        #we use fixed depth for now
-        self.device.move_to(result[0][0],result[0][1],-70.0, 0.0 , wait = True) 
-        time.sleep(2)
+        self.device.move_to(x1, y1, -20, 0, wait=True)
         self.run_suck()
         time.sleep(1)
-        self.return_ori()
-        time.sleep(2)
-        self.device.move_to(result[0][0],result[0][1],-65.0, 0.0 , wait = True) 
-        self.free()
-        time.sleep(2)
-        self.return_ori()
+        self.device.move_to(260, 0, 100, 0, wait=True)
+        self.free
 
 
     def run_suck(self):
@@ -483,19 +483,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         #self.device.grip(False)
         self.device.suck(False) 
         
-
-
-    # go to initinal position
-    def return_ori(self):
-        (x, y, z) = self.get_pos()   
-        self.device.move_to(x, y, z+20, 0.0) 
-        self.device.move_to(211.9, y, z+20, 0.0) 
-
-        self.device.move_to(211.9, 1.1, z+20, 0.0) 
-
-        self.device.move_to(211.9, 1.1, 172.64, 0.0) 
-        self.get_pos()
-        #211.9810 1.1234 172.8245 0.3037
+    #
+    def print_location(self):
+        (x, y, z) = self.get_pos()
+        print("location\n")
+        print(x)
+        print(y)
+        print(z) 
 
 
         
@@ -504,7 +498,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         self.y = event.y()
 
         # get depth 
-        self.th.get_depth(self.x, self.y)
+        self.depth = self.th.get_depth(self.x, self.y)
 
         if self.x <= 1280 and self.y <= 720:
             #print (x,y)
