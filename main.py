@@ -38,6 +38,76 @@ signal = MySignal()
 
 #global 
 
+class handleAGV(QThread):
+    def run(self):
+        self.initSocketSer()
+
+    def initSocketCli(self):
+        HOST=''
+        PORT = 8000
+        ADDR = (HOST,PORT)
+        self.tcpSerSock = socket(AF_INET, SOCK_STREAM)  
+        self.tcpSerSock.bind(ADDR)
+        self.tcpSerSock.listen()
+        print('wating for AGV connection...')
+        self.tcpCliSock,self.addr = self.tcpSerSock.accept()
+        print( '...connected from:',self.addr)
+        BUFSIZE = 1024
+        data = self.tcpCliSock.recv(BUFSIZE)
+
+        try:
+            data=1   
+        except Exception as e:
+            print("stop during thread pool")
+            print(e)
+        
+    
+    def sendData(self):
+        try:
+            if (self.is_Finish==False):
+                import os
+                os.system("cp target.jpg /media/sf_winLinux/project")
+                data="test"
+                BUFSIZE = 1024
+                self.tcpCliSock.send(data.encode())
+                #print("here")
+                #time.sleep(1.5)
+                data = self.tcpCliSock.recv(BUFSIZE).decode()
+                #print ("123") 
+                return self.handleString(data)
+        except Exception as e:
+            print("error during send and recv socket")
+            print(e)
+            return []
+
+    def handleString(self,obj):
+        try:
+            strArr=obj.split("'")
+            #print(obj)
+            name=strArr[1]
+            strArr[2]=strArr[2].replace("(", "")
+            strArr[2]=strArr[2].replace(")", "")
+            strArr[2]=strArr[2].replace("]", "")
+            strArr[2]=strArr[2].replace("b", "")
+            strArr[2]=strArr[2].replace("\"", "")
+            strArr[2]=strArr[2].split(",")
+            strArr[2].pop(0)
+            for items in strArr[2]:
+                if items!=" ":
+                    items=float(items)
+            data=[(name,float(strArr[2][0]),
+            (float(strArr[2][1]),float(strArr[2][2]),float(strArr[2][3]),float(strArr[2][4])))]
+            return data
+        except Exception as e:
+            print("error handle string from socket")
+            print("data is "+obj)
+            print(e)
+            return []            
+    
+    def _del_(self):
+        self.tcpCliSock.close()
+
+
 
 
 class yolo_Thread(QThread):
@@ -65,6 +135,7 @@ class yolo_Thread(QThread):
                             cv2.imwrite("target.jpg", self.detection_img)
                             self.i=1
                             detections=self.sendData()
+                            self.is_always_detect=False
                         except Exception as e:
                             print("沒有連接到socket,將無法開啟即時偵測功能")
                             self.is_always_detect=False
@@ -78,6 +149,7 @@ class yolo_Thread(QThread):
                     self.img_mutex.unlock()
                     self.detection_img=None
                     self.detection_result=detections
+
                     #print("done")
                     
             except Exception as e:
@@ -112,8 +184,7 @@ class yolo_Thread(QThread):
                 self.tcpCliSock.send(data.encode())
                 #print("here")
                 #time.sleep(1.5)
-                data = self.tcpCliSock.recv(BUFSIZE)
-                data=str(data)
+                data = self.tcpCliSock.recv(BUFSIZE).decode()
                 #print ("123") 
                 return self.handleString(data)
         except Exception as e:
@@ -129,11 +200,13 @@ class yolo_Thread(QThread):
             strArr[2]=strArr[2].replace("(", "")
             strArr[2]=strArr[2].replace(")", "")
             strArr[2]=strArr[2].replace("]", "")
+            strArr[2]=strArr[2].replace("b", "")
             strArr[2]=strArr[2].replace("\"", "")
             strArr[2]=strArr[2].split(",")
             strArr[2].pop(0)
             for items in strArr[2]:
-                items=float(items)
+                if items!=" ":
+                    items=float(items)
             data=[(name,float(strArr[2][0]),
             (float(strArr[2][1]),float(strArr[2][2]),float(strArr[2][3]),float(strArr[2][4])))]
             return data
@@ -203,14 +276,24 @@ class Thread(QThread):
     changePixmap = pyqtSignal(QtGui.QImage)
     addNewObj= pyqtSignal(list,list)
 
+    def get_depth(self, x ,y):
+        print("x: "+str(x)+ " y: "+str(y))
+        
+        dist = self.depth_frame.get_distance(x, y)
+        print("depth: ")
+        print (dist)
+        return dist
+
     def run(self):
         global signal
         self.i = 0
         signal.sig.connect(self.save_img)
         self.pipeline = rs.pipeline()
         self.config = rs.config()
+
+
         self.beforeResult=[]
-        #config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 30)
+        self.config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 30)
         self.config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
         self.pipeline.start(self.config)
         detection_result=None
@@ -222,7 +305,8 @@ class Thread(QThread):
         while True:
             frames = self.pipeline.wait_for_frames()
             color_frame = frames.get_color_frame()
-            if  not color_frame:
+            self.depth_frame = frames.get_depth_frame()
+            if  not color_frame or not self.depth_frame:
                 continue
             #print("1")
             self.color_image = np.asanyarray(color_frame.get_data())
@@ -319,39 +403,42 @@ class Thread(QThread):
             self.beforeResult=detection
             self.addNewObj.emit(name,pos)
             
-
-        
-
+                
 class MyPopup(QDialog, Ui_dialog):
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None,dobot=None):
         super(MyPopup, self).__init__(parent)
         self.setupUi(self)
-        self.label.resize(1280,720)
-        self.label.move(0,0)
+        self.btn_grp = QButtonGroup(self)
+        self.btn_grp.setExclusive(True)
+        
+        #self.btn_detect.clicked.connect(dobot.single_detect)
+        #self.btn_always_detect.clicked.connect(dobot.always_detect)
 
-        self.btn_save.clicked.connect(self.save_img)
+        self.btn_grp.buttonClicked[int].connect(dobot.get_items)
+        self.objArr=[]
         self.show()
+    
+    def add_obj(self,name,objList):
+        """_translate = QtCore.QCoreApplication.translate
+        for obj in self.objArr:
+            for items in obj:
+                del items
+        self.objArr=[]
+        j=0
+        for obj in objList:
+            self.objArr.append([
+                    QtWidgets.QLabel(self.objInfoWidget),
+                    QtWidgets.QLabel(self.objInfoWidget),
+                    QtWidgets.QPushButton(self.objInfoWidget),
+                ])
+            for i in range(3):
+                self.objLayout.addWidget(self.objArr[j][i], 2+j, i, 1, 1)
+            self.objArr[j][0].setText(_translate("Form", str(name[j])))
+            self.objArr[j][1].setText(_translate("Form", str(obj[2])))
+            self.objArr[j][2].setText(_translate("Form", "抓取"))
+            j+=1"""
         
-    def mousePressEvent(self, event):
-        x = event.x()
-        y = event.y()
-        if x <= 1280 and y <= 720:
-            #print (x,y)
-            self.label_X.setText(str(x))
-            self.label_Y.setText(str(y))
-            self.update()
-
-
-    def save_img(self):
-        global signal
-        signal.sig.emit()
-        
-        
-    @QtCore.pyqtSlot(QtGui.QImage) 
-    def setImage(self, image):
-        self.label.setPixmap(QPixmap.fromImage(image))
-        self.update()
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_Form):
@@ -359,16 +446,14 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         super(MainWindow, self).__init__(parent=parent)
         self.setupUi(self)
         self.nowItem=[]
-        self.btn_grp = QButtonGroup(self)
-        self.btn_grp.setExclusive(True)
-        self.onBindingUi()
+        self.x = 640.0
+        self.y = 360.0
         self.user_set_pos=[(0,0,0,0)]
         print("開始自動尋找dobot所在的port\n")
         self._connect_dobot(0)
         self._init_ui_connect()
         self.get_pos()
         self.waitTime=2
-
     
     def _connect_dobot(self,i):
         try:
@@ -385,54 +470,301 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
                 print("連接失敗，請檢查是否有將dobot接上USB")
 
 
-    def _init_ui_connect(self):
-        _translate = QtCore.QCoreApplication.translate
-        self.btn_go.clicked.connect(self._set_user_set_pos)   #get data
-        self.btn_reset.clicked.connect(self.action)
-        self.comboBox.insertItem(0,"點1")
-        self.lineEdit.textEdited.connect(self.set_time)
-        self.lineEdit_1.textEdited.connect(self.set_x)
-        self.lineEdit_2.textEdited.connect(self.set_y)
-        self.lineEdit_3.textEdited.connect(self.set_z)
-        self.lineEdit_4.textEdited.connect(self.set_r)
-        self.comboBox.currentIndexChanged.connect(self.switch_point)
-        self.lineEdit.setText(_translate("Form", str(2)))
+    #compute (u,v) to real world corrdinate space
+    def trans(self):
+        (x,y,z) = self.get_pos()
+        
+        u = self.x 
+        v = self.y 
+        print('u')
+        print(u)
+        print('v')
+        print(v)
 
-        self.btn_correct.clicked.connect(self.run_thread)
-        self.btn_detect.clicked.connect(self.single_detect)
-        self.btn_always_detect.clicked.connect(self.always_detect)
-        self.btn_grp.buttonClicked[int].connect(self.get_items)
+        X = np.array([[u, v, 1.0]]).reshape(1,3)
 
-        self.streampopup = MyPopup()
-        self.streampopup.show()
-        self.setWindowFlags(
-            Qt.WindowStaysOnTopHint)
 
-        self.th = Thread(self)
-        self.th.changePixmap.connect(self.streampopup.setImage)
-        self.th.addNewObj.connect(self.add_obj)
-        self.th.start()
+        M = np.array([[ 2.04310618e-04, -3.26572729e-01, 1.30104261e-18],
+                    [-3.32861745e-01, -4.29655952e-03, -4.33680869e-19],
+                    [ 3.76552632e+02, 2.44078479e+02, 1.00000000e+00]])
+
+
+        result = X.dot(M)
+        #print(result)
+        #we use fixed depth for now
+        self.depth = self.th.get_depth(u, v)
+        #print()
+        
+        #self.device.move_to(191.34018,1.1,172.64001 -, 0.0 , wait = True)
+        if(self.depth == 0.0): 
+            return
+        depth =  self.depth*1000.0 - 65.0
+        depth = 172.64 - depth # + 2.5
+        print("depth:") 
+        print(depth)
+
+        #172.64 - (-67) = 239.64
+        #
+
+        #distance 30.4-6.5 = 23.9
+        self.device.move_to(211.9, 1.1, 172.64, 0.0, wait = True) 
+        self.device.move_to(211.9, 1.1, 130.0, 0.0, wait = True) 
+        self.device.move_to(result[0][0]-2.5,result[0][1]+1.5,-26, 0.0 , wait = True) 
 
         
-        for x in range(3):
-            self.gridLayout_2.setColumnStretch(x, x+1)
-    def closeEvent(self, event):
-        self.th.stop()
 
-    def single_detect(self):
-        self.th.setFinish()
 
-    def always_detect(self):
-        self.th.setAlwaysDetect()
+    # go to initinal position
+    def return_ori(self):
+        (x, y, z) = self.get_pos()   
+        #191.34018, 1.1, 172.64001
+        self.device.move_to(x, y, z+20, 0.0) 
+        self.device.move_to(211.9, y, z+20, 0.0) 
+
+        self.device.move_to(211.9, 1.1, z+20, 0.0) 
+
+        self.device.move_to(211.9, 1.1, 172.64, 0.0) 
+        self.device.move_to(191.34018, 1.1, 172.64, 0.0)
+
+        self.get_pos()
+        
+        #211.9810 1.1234 172.8245 0.3037
+
+    #go back to safe postion
+    # -24.947933197021484, -141.1808624267578,22.64008331298828
+
+#x - 20]
+#(y - 100   x-20)
+    def rotate_90(self):
+        (x, y, z) = self.get_pos() 
+ 
+        y = y- 40
+
+        self.device.move_to(x, y, z, 0.0)
+
+        x = x +80
+        z = z +70
+
+        self.device.move_to(x, y, z, 0.0)
+
+        y = y + 60
+        x = x + 60 
+
+        self.device.move_to(x, y, z, 0.0)
+
+
+        y = y +40
+        x = x +40
+
+        self.device.move_to(x, y, z, 0.0)
+
+        x = x +40
+        y = y +100
+
+        self.device.move_to(x, y, z, 0.0) 
+
+        x = x-20
+        y = y
+        z = z+80
+        self.device.move_to(x, y, z, 0.0)
+
+
+    def rotate_minus90(self):
+        (x, y, z) = self.get_pos() 
+        x = x+20
+        y = y
+        z = z-80
+        self.device.move_to(x, y, z, 0.0) 
+
+        x = x -40
+        y = y-100
+
+        self.device.move_to(x, y, z, 0.0) 
+
+        y = y -40
+        x = x -40
+
+        self.device.move_to(x, y, z, 0.0)
+
+        y = y - 60
+        x = x - 60 
+
+        self.device.move_to(x, y, z, 0.0)
+
+        x = x -80
+        z = z -70
+
+        self.device.move_to(x, y, z, 0.0)
+
+        y = y+ 40
+
+        self.device.move_to(x, y, z, 0.0)
+
+
+
+
+        # x -80
+        # z - 70
+
+        # y +40
+
+
+    def _init_ui_connect(self):
+        _translate = QtCore.QCoreApplication.translate
+        self.btn_new.clicked.connect(self._set_user_set_pos)   #get data
+
+        self.btn_move.clicked.connect(self.action)
+        self.btn_go.clicked.connect(self.trans)
+
+
+        self.comboBox.insertItem(0,"點1")
+        self.lineEdit.textEdited.connect(self.set_time)
+        self.X_edit.textEdited.connect(self.set_x)
+        self.Y_edit.textEdited.connect(self.set_y)
+        self.Z_edit.textEdited.connect(self.set_z)
+        self.R_edit.textEdited.connect(self.set_r)
+        self.comboBox.currentIndexChanged.connect(self.switch_point)
+        
+        self.lineEdit.setText(_translate("Form", str(2)))
+
+        self.btn_rotate_j1_90.clicked.connect(self.rotate_minus90)
+        self.btn_reverse.clicked.connect(self.rotate_90)
+
+
+        self.streampopup = MyPopup(dobot=self)
+        self.streampopup.show()
+        self.setWindowFlags(Qt.WindowStaysOnTopHint)
+        
+
+        
+        #self.btn_detect.clicked.connect(self.single_detect)
+
+        #button.clicked.connect(lambda: calluser(name))
+        self.interval = 1
+        self.input_interval.textEdited.connect(self.set_inputinterval)
+        self.btn_x_increase.clicked.connect(lambda: self.move_xyz(self.interval, 0, 0))
+        self.btn_x_reduce.clicked.connect(lambda: self.move_xyz(-self.interval, 0, 0))
+        self.btn_y_increase.clicked.connect(lambda: self.move_xyz(0, self.interval, 0))
+        self.btn_y_reduce.clicked.connect(lambda: self.move_xyz(0, -self.interval, 0))
+        self.btn_z_increase.clicked.connect(lambda: self.move_xyz(0, 0, self.interval))
+        self.btn_z_reduce.clicked.connect(lambda: self.move_xyz(0, 0, -self.interval))
+
+        self.btn_return.clicked.connect(self.return_ori)
+
+        self.btn_update_loc.clicked.connect(self.print_location)
+
+        self.th = Thread(self)
+        self.th.changePixmap.connect(self.setImage)
+        self.th.addNewObj.connect(self.add_obj)
+        self.th.start()
+        
+        
+        self.stream_label.resize(1280,720)
+        self.stream_label.move(0,0)
+
+        self.btn_save.clicked.connect(self.save_img)
+
+
+        
+        self.btn_suck.clicked.connect(self.run_suck)
+        self.btn_free.clicked.connect(self.free)
+
+        self.agv=threading.Thread(target = self.handleAGV)
+        self.agv.start()
+
+    def add_obj(self,name,objList):
+        _translate = QtCore.QCoreApplication.translate
+        self.objArr=[]
+        j=0
+        self.nowItem=[]
+        if objList==[]:
+            return
+        for obj in objList:
+            try:
+                self.nowItem.append({"name":name[j],"pos":obj})
+            except:
+                self.nowItem.append({"name":"不明物","pos":obj})
+            #self.objArr[j][2].click.connect(self.get_items)    
+            j+=1
+
+    def get_items(self,idi):
+        
+        btn_id=idi
+        print("id is "+str(btn_id))
+        print("click "+str(btn_id))
+        x=self.nowItem[btn_id]["pos"][0]
+        y=self.nowItem[btn_id]["pos"][1]
+        print("go to "+str(x)+" "+str(y))
+
+        ##在這裡做座標轉換
+        y1=float(-55*x/228+204.1228)
+        x1=float(-5*y/19+414.4737)
+        ##在上面做座標轉換
+
+        self.device.move_to(x1, y1, -20, 0, wait=True)
+        self.run_suck()
+        time.sleep(1)
+        self.device.move_to(260, 0, 100, 0, wait=True)
+        self.free
+
+
+    def run_suck(self):
+        self.device.grip(True)
+        
+    def free(self):
+        #self.device.grip(False)
+        self.device.suck(False) 
+        
+    #
+    def print_location(self):
+        (x, y, z) = self.get_pos()
+        print("location\n")
+        print(x)
+        print(y)
+        print(z) 
+
+
+        
+    def mousePressEvent(self, event):
+        self.x = event.x()
+        self.y = event.y()
+
+        # get depth 
+        self.depth = self.th.get_depth(self.x, self.y)
+
+        if self.x <= 1280 and self.y <= 720:
+            #print (x,y)
+            self.label_X.setText(str(self.x))
+            self.label_Y.setText(str(self.y))
+            self.update()
+
 
     def save_img(self):
         global signal
         signal.sig.emit()
         
-    def run_thread(self):
-        t = correct_Thread(self)
-        t.set_device(self.device)
-        t.start()
+        
+    @QtCore.pyqtSlot(QtGui.QImage) 
+    def setImage(self, image):
+        self.stream_label.setPixmap(QPixmap.fromImage(image))
+        self.update()
+
+    def set_inputinterval(self, content):
+        
+        self.interval = float(content)
+      
+    def closeEvent(self, event):
+        self.th.stop()
+        self.streampopup.quit()
+
+
+    def single_detect(self):
+        self.th.setFinish()
+
+    def save_img(self):
+        global signal
+        signal.sig.emit()
+        
     
     def switch_point(self,index):
         try:
@@ -442,7 +774,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
             self.lineEdit_3.setText(_translate("Form", str(self.user_set_pos[index][2])))
             self.lineEdit_4.setText(_translate("Form", str(self.user_set_pos[index][3])))
         except Exception as e:
-            print("hahaha")
             print(e)
 
     def set_time(self,content):
@@ -453,14 +784,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
             print(e)
 
 
-
     def set_x(self,content):
         try:
             tmp=self.user_set_pos[self.comboBox.count()-1]
             print(tmp)
             (x, y, z, r) =tmp
-            print(content)
             self.user_set_pos[self.comboBox.count()-1]=(float(content),y,z,r)
+            print(content)
         except Exception as e:
             print("輸入格式錯誤")
             print(e)
@@ -491,81 +821,29 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         except Exception as e:
             print("輸入格式錯誤")
             print(e)
-
-    def add_obj(self,name,objList):
-        _translate = QtCore.QCoreApplication.translate
-        try:
-            for obj in self.objArr:
-                for items in obj:
-                    items.deleteLater()
-                    self.objLayout.removeWidget(items)
-            del self.btn_grp
-        except Exception as e:
-            print(e)
-        self.btn_grp=QButtonGroup(self)
-        self.btn_grp.setExclusive(True)
-        self.btn_grp.buttonClicked[int].connect(self.get_items)
-        self.objArr=[]
-        j=0
-        self.nowItem=[]
-        if objList==[]:
-            return
-        for obj in objList:
-            self.objArr.append([
-                    QtWidgets.QLabel(self.objInfoWidget),
-                    QtWidgets.QLabel(self.objInfoWidget),
-                    QtWidgets.QPushButton(self.objInfoWidget),
-                ])
-            for i in range(3):
-                self.objLayout.addWidget(self.objArr[j][i], 2+j, i, 1, 1)
-            try:
-                self.objArr[j][0].setText(_translate("Form", str(name[j])))
-                self.nowItem.append({"name":name[j],"pos":obj})
-            except:
-                self.objArr[j][0].setText(_translate("Form", "不明物"))
-                self.nowItem.append({"name":"不明物","pos":obj})
-            self.objArr[j][1].setText(_translate("Form", str(obj)))
-            self.objArr[j][2].setText(_translate("Form", "抓取"))
-            self.btn_grp.addButton(self.objArr[j][2],j)
-            #self.objArr[j][2].click.connect(self.get_items)    
-            j+=1
     
     def get_pos(self):
         _translate = QtCore.QCoreApplication.translate
         try:
-            (x,y,z,r,j1,j2,j3,j4)=self.device.pose()
+            (x, y, z, r, j1, j2, j3, j4)=self.device.pose()
             self.user_set_pos[0]=(x,y,z,r)
         except Exception as e:
+            (x,y,z)=(0,0,0)
             self.user_set_pos[0]=(0,0,0,0)
 
         pos=self.user_set_pos[0]
-        self.label_1.setText(_translate("Form", str(round(pos[0],5))))
-        self.lineEdit_1.setText(_translate("Form", str(round(pos[0],5))))
+        self.X_output.setText(_translate("Form", str(round(pos[0],5))))
+        self.X_edit.setText(_translate("Form", str(round(pos[0],5))))
 
-        self.label_5.setText(_translate("Form", str(round(pos[1],5))))
-        self.lineEdit_2.setText(_translate("Form", str(round(pos[1],5))))
+        self.Y_output.setText(_translate("Form", str(round(pos[1],5))))
+        self.Y_edit.setText(_translate("Form", str(round(pos[1],5))))
 
-        self.label_6.setText(_translate("Form", str(round(pos[2],5))))
-        self.lineEdit_3.setText(_translate("Form", str(round(pos[2],5))))
+        self.Z_output.setText(_translate("Form", str(round(pos[2],5))))
+        self.Z_edit.setText(_translate("Form", str(round(pos[2],5))))
 
-        self.label_7.setText(_translate("Form", str(round(pos[3],5))))
-        self.lineEdit_4.setText(_translate("Form", str(round(pos[3],5))))
-
-
-
-    def get_items(self,idi):
-        
-        btn_id=idi
-        print("id is "+str(btn_id))
-        print("click "+str(btn_id))
-        x=self.nowItem[btn_id]["pos"][0]
-        y=self.nowItem[btn_id]["pos"][1]
-        print("go to "+str(x)+" "+str(y))
-        y1=float(-55*x/228+204.1228)
-        x1=float(-5*y/19+414.4737)
-        self.device.move_to(x1, y1, -20, 0, wait=True)
-        time.sleep(1)
-        self.device.move_to(260, 0, 100, 0, wait=True)
+        self.R_output.setText(_translate("Form", str(round(pos[3],5))))
+        self.R_edit.setText(_translate("Form", str(round(pos[3],5))))
+        return (x,y,z)
 
     def action(self):
         test=[]
@@ -587,6 +865,47 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
             for item in test:
                 f.write(str(item))
                 f.write("\n")
+
+    def handleAGV(self):
+        HOST=''
+        PORT = 8000
+        ADDR = (HOST,PORT)
+        try:
+            self.tcpSerSock = socket(AF_INET, SOCK_STREAM)  
+            self.tcpSerSock.bind(ADDR)
+            self.tcpSerSock.listen()
+            print('wating for AGV connection...')
+            self.tcpCliSock,self.addr = self.tcpSerSock.accept()
+            print( '...connected from:',self.addr)
+            BUFSIZE = 1024
+            test= True
+            while(1):               
+                data = self.tcpCliSock.recv(BUFSIZE)
+                if test==True:
+                    test=False
+                    print(data.decode())
+                    print("AGV arrive!")
+                    self.th.yolo_t.is_always_detect=True
+                    while(len(self.nowItem)==0):
+                        test=False
+                    x=self.nowItem[0]["pos"][0]
+                    y=self.nowItem[0]["pos"][1]
+                    print("go to "+str(x)+" "+str(y))
+                    self.y1=float(-55*x/228+204.1228)
+                    self.x1=float(-5*y/19+414.4737)
+                    self.return_ori()
+                    print("x is "+str(x))
+                    self.x=int(x)
+                    self.y=int(y)
+                    self.trans()
+                    self.return_ori()
+                    print("AGV get!")
+                    self.nowItem=[]
+
+                    
+        except Exception as e:
+            print("stop during thread pool")
+            print(e)
     
     def _set_user_set_pos(self): 
         try:
@@ -599,7 +918,22 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
     
     def onBindingUi(self):
         pass
+
+    def _del_(self):
+        self.tcpSerSock.close()
     
+    def _set_user_set_pos(self): 
+        try:
+            self.comboBox.addItem("點"+str(self.comboBox.count()+1))
+            self.user_set_pos.append((0,0,0,0))
+            print(str(self.user_set_pos))
+        except Exception as e:
+            print("輸入格式錯誤")
+            print("錯誤訊息： "+str(e)) 
+
+    def move_xyz(self, x_, y_, z_):
+        (x,y,z) = self.get_pos()   
+        self.device.move_to(x+ x_, y +y_, z+z_, 0.0 , wait= True) 
 
     
 
@@ -607,6 +941,5 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     w = MainWindow()
-    #w = MyPopup()
     w.show()
     sys.exit(app.exec_())
