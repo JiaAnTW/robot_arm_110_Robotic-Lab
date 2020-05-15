@@ -100,6 +100,7 @@ class handleAGV(QThread):
             return data
         except Exception as e:
             print("error handle string from socket")
+            self.main.cleanScan()
             print("data is "+obj)
             print(e)
             return []            
@@ -112,6 +113,7 @@ class handleAGV(QThread):
 
 class yolo_Thread(QThread):
     addNewObj= pyqtSignal(list)
+    handleAGV= pyqtSignal()
     def run(self):
         self.is_Finish=True
         self.i=0
@@ -212,6 +214,7 @@ class yolo_Thread(QThread):
             return data
         except Exception as e:
             print("error handle string from socket")
+            self.main.cleanScan()
             print("data is "+obj)
             print(e)
             return []            
@@ -299,6 +302,7 @@ class Thread(QThread):
         detection_result=None
         is_Finish=True
         self.yolo_t=yolo_Thread()
+        self.yolo_t.main=self.main
         self.yolo_t.start()
         self.yolo_t.addNewObj.connect(self.obj_thread)
 
@@ -452,6 +456,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         print("開始自動尋找dobot所在的port\n")
         self._connect_dobot(0)
         self._init_ui_connect()
+        self.isScanDone=False
         self.get_pos()
         self.waitTime=2
     
@@ -496,8 +501,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         #print()
         
         #self.device.move_to(191.34018,1.1,172.64001 -, 0.0 , wait = True)
-        if(self.depth == 0.0): 
-            return
+        #if(self.depth == 0.0): 
+         #   return
         depth =  self.depth*1000.0 - 65.0
         depth = 172.64 - depth # + 2.5
         print("depth:") 
@@ -654,6 +659,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         self.btn_update_loc.clicked.connect(self.print_location)
 
         self.th = Thread(self)
+        self.th.main=self
         self.th.changePixmap.connect(self.setImage)
         self.th.addNewObj.connect(self.add_obj)
         self.th.start()
@@ -670,7 +676,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         self.btn_free.clicked.connect(self.free)
 
         self.agv=threading.Thread(target = self.handleAGV)
+        self.agv.main=self
         self.agv.start()
+
+    def cleanScan(self):
+        self.isScanDone=True
 
     def add_obj(self,name,objList):
         _translate = QtCore.QCoreApplication.translate
@@ -686,6 +696,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
                 self.nowItem.append({"name":"不明物","pos":obj})
             #self.objArr[j][2].click.connect(self.get_items)    
             j+=1
+        self.isScanDone=True
 
     def get_items(self,idi):
         
@@ -870,24 +881,26 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         HOST=''
         PORT = 8000
         ADDR = (HOST,PORT)
-        try:
-            self.tcpSerSock = socket(AF_INET, SOCK_STREAM)  
-            self.tcpSerSock.bind(ADDR)
-            self.tcpSerSock.listen()
-            print('wating for AGV connection...')
+        self.tcpSerSock = socket(AF_INET, SOCK_STREAM)  
+        self.tcpSerSock.bind(ADDR)
+        self.tcpSerSock.listen()
+        print('wating for AGV connection...')
+        test= True
+        while(1):
+            print("done\n")
             self.tcpCliSock,self.addr = self.tcpSerSock.accept()
             print( '...connected from:',self.addr)
-            BUFSIZE = 1024
-            test= True
-            while(1):               
-                data = self.tcpCliSock.recv(BUFSIZE)
-                if test==True:
-                    test=False
-                    print(data.decode())
-                    print("AGV arrive!")
-                    self.th.yolo_t.is_always_detect=True
-                    while(len(self.nowItem)==0):
-                        test=False
+            BUFSIZE = 1024               
+            data = self.tcpCliSock.recv(BUFSIZE)
+            print(data.decode())
+            print("AGV arrive!")
+            self.th.yolo_t.is_always_detect=True
+            try:
+                while(self.isScanDone==False):
+                    continue
+                if(len(self.nowItem)==0):
+                    self.tcpCliSock.send(str("no").encode())
+                else:
                     x=self.nowItem[0]["pos"][0]
                     y=self.nowItem[0]["pos"][1]
                     print("go to "+str(x)+" "+str(y))
@@ -900,12 +913,19 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
                     self.trans()
                     self.return_ori()
                     print("AGV get!")
+                    self.tcpCliSock.send(str("yes").encode())
+                    print("done\n")
+                    self.isScanDone=False
                     self.nowItem=[]
+                    time.sleep(4)
 
                     
-        except Exception as e:
-            print("stop during thread pool")
-            print(e)
+            except Exception as e:
+                self.tcpCliSock.send(str("no").encode())
+                self.isScanDone=False
+                self.nowItem=[]
+                print("stop during thread pool")
+                print(e)
     
     def _set_user_set_pos(self): 
         try:
