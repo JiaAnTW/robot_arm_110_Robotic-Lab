@@ -505,16 +505,29 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
          #   return
         depth =  self.depth*1000.0 - 65.0
         depth = 172.64 - depth # + 2.5
+
         print("depth:") 
         print(depth)
 
-        #172.64 - (-67) = 239.64
-        #
-
-        #distance 30.4-6.5 = 23.9
         self.device.move_to(211.9, 1.1, 172.64, 0.0, wait = True) 
-        self.device.move_to(211.9, 1.1, 130.0, 0.0, wait = True) 
-        self.device.move_to(result[0][0]-2.5,result[0][1]+1.5,-26, 0.0 , wait = True) 
+       
+
+
+        self.device.move_to(result[0][0]-2.5,result[0][1]+1.5,30.0, 0.0 , wait = True) 
+        self.device.move_to(result[0][0]-2.5-20.0,result[0][1]+1.5,172.64, 0.0 , wait = True) 
+
+
+    def go_to_depth(self,u, v):
+        (x,y,z) = self.get_pos()
+        #self.device.move_to(x-20.0 ,y ,z, 0.0 , wait = True) 
+        self.depth = self.th.get_depth(u, v)
+        
+        depth =  self.depth*1000.0 - 65.0
+        depth = 172.64 - depth 
+        print("depth:")
+        print(depth)
+        self.device.move_to(x+20.0 ,y ,depth+10.0, 0.0 , wait = True) 
+
 
         
 
@@ -523,23 +536,17 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
     def return_ori(self):
         (x, y, z) = self.get_pos()   
         #191.34018, 1.1, 172.64001
-        self.device.move_to(x, y, z+20, 0.0) 
-        self.device.move_to(211.9, y, z+20, 0.0) 
+        self.device.move_to(x, y, z+40, 0.0) 
+        self.device.move_to(211.9, y, z+40, 0.0) 
 
-        self.device.move_to(211.9, 1.1, z+20, 0.0) 
+        self.device.move_to(211.9, 1.1, z+40, 0.0) 
 
         self.device.move_to(211.9, 1.1, 172.64, 0.0) 
         self.device.move_to(191.34018, 1.1, 172.64, 0.0)
 
         self.get_pos()
         
-        #211.9810 1.1234 172.8245 0.3037
-
-    #go back to safe postion
-    # -24.947933197021484, -141.1808624267578,22.64008331298828
-
-#x - 20]
-#(y - 100   x-20)
+       
     def rotate_90(self):
         (x, y, z) = self.get_pos() 
  
@@ -900,6 +907,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
                     continue
                 if(len(self.nowItem)==0):
                     self.tcpCliSock.send(str("no").encode())
+                    self.tcpCliSock.close()
+                    self.isScanDone=False
+                    time.sleep(4)
                 else:
                     x=self.nowItem[0]["pos"][0]
                     y=self.nowItem[0]["pos"][1]
@@ -911,6 +921,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
                     self.x=int(x)
                     self.y=int(y)
                     self.trans()
+                    time.sleep(4)
+                    self.isScanDone=False
+                    self.th.yolo_t.is_always_detect=True
+                    while(self.isScanDone==False):
+                        continue
+                    x=self.nowItem[0]["pos"][0]
+                    y=self.nowItem[0]["pos"][1]
+                    self.go_to_depth(x,y)
+                    self.run_suck()
+                    time.sleep(2)
                     self.return_ori()
                     print("AGV get!")
                     self.tcpCliSock.send(str("yes").encode())
