@@ -481,11 +481,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         
         u = self.x 
         v = self.y 
-        print('u')
-        print(u)
-        print('v')
-        print(v)
-
+        
         X = np.array([[u, v, 1.0]]).reshape(1,3)
 
 
@@ -495,39 +491,21 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
 
 
         result = X.dot(M)
-        #print(result)
-        #we use fixed depth for now
         self.depth = self.th.get_depth(u, v)
-        #print()
-        
-        #self.device.move_to(191.34018,1.1,172.64001 -, 0.0 , wait = True)
-        #if(self.depth == 0.0): 
-         #   return
-        depth =  self.depth*1000.0 - 65.0
-        depth = 172.64 - depth # + 2.5
-
-        print("depth:") 
-        print(depth)
-
+        #we use fixed depth for now
+    
         self.device.move_to(211.9, 1.1, 172.64, 0.0, wait = True) 
        
-
-
-        self.device.move_to(result[0][0]-2.5,result[0][1]+1.5,30.0, 0.0 , wait = True) 
-        self.device.move_to(result[0][0]-2.5-20.0,result[0][1]+1.5,172.64, 0.0 , wait = True) 
-
-
-    def go_to_depth(self,u, v):
-        (x,y,z) = self.get_pos()
-        #self.device.move_to(x-20.0 ,y ,z, 0.0 , wait = True) 
-        self.depth = self.th.get_depth(u, v)
         
         depth =  self.depth*1000.0 - 65.0
         depth = 172.64 - depth 
-        print("depth:")
-        print(depth)
-        self.device.move_to(x+20.0 ,y ,depth+10.0, 0.0 , wait = True) 
-
+        print("self depth")
+        print(self.depth)
+        if(self.depth!=0.0):
+            #self.device.move_to(x+20.0 ,y ,depth+10.0, 0.0 , wait = True) 
+            self.device.move_to(result[0][0]-2.5,result[0][1]+1.5,depth+5.0, 0.0 , wait = True) 
+        
+        
 
         
 
@@ -733,7 +711,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         #self.device.grip(False)
         self.device.suck(False) 
         
-    #
+    
     def print_location(self):
         (x, y, z) = self.get_pos()
         print("location\n")
@@ -893,6 +871,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         self.tcpSerSock.listen()
         print('wating for AGV connection...')
         test= True
+        waitFish=False
         while(1):
             print("done\n")
             self.tcpCliSock,self.addr = self.tcpSerSock.accept()
@@ -900,52 +879,58 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
             BUFSIZE = 1024               
             data = self.tcpCliSock.recv(BUFSIZE)
             print(data.decode())
-            print("AGV arrive!")
-            self.th.yolo_t.is_always_detect=True
-            try:
-                while(self.isScanDone==False):
-                    continue
-                if(len(self.nowItem)==0):
-                    self.tcpCliSock.send(str("no").encode())
-                    self.tcpCliSock.close()
-                    self.isScanDone=False
-                    time.sleep(4)
-                else:
-                    x=self.nowItem[0]["pos"][0]
-                    y=self.nowItem[0]["pos"][1]
-                    print("go to "+str(x)+" "+str(y))
-                    self.y1=float(-55*x/228+204.1228)
-                    self.x1=float(-5*y/19+414.4737)
-                    self.return_ori()
-                    print("x is "+str(x))
-                    self.x=int(x)
-                    self.y=int(y)
-                    self.trans()
-                    time.sleep(4)
-                    self.isScanDone=False
-                    self.th.yolo_t.is_always_detect=True
+            if(data.decode()=="OK"):
+                print("AGV arrive!")
+                self.th.yolo_t.is_always_detect=True
+                try:
                     while(self.isScanDone==False):
                         continue
-                    x=self.nowItem[0]["pos"][0]
-                    y=self.nowItem[0]["pos"][1]
-                    self.go_to_depth(x,y)
-                    self.run_suck()
-                    time.sleep(2)
-                    self.return_ori()
-                    print("AGV get!")
-                    self.tcpCliSock.send(str("yes").encode())
-                    print("done\n")
-                    self.isScanDone=False
-                    self.nowItem=[]
-                    time.sleep(4)
+                    if(len(self.nowItem)==0):
+                        self.tcpCliSock.send(str("no").encode())
+                        self.tcpCliSock.close()
+                        self.isScanDone=False
+                        time.sleep(4)
+                    else:
+                        x=self.nowItem[0]["pos"][0]
+                        y=self.nowItem[0]["pos"][1]
+                        print("go to "+str(x)+" "+str(y))
+                        self.y1=float(-55*x/228+204.1228)
+                        self.x1=float(-5*y/19+414.4737)
+                        self.return_ori()
+                        print("x is "+str(x))
+                        self.x=int(x)
+                        self.y=int(y)
+                        self.trans()
+                        #time.sleep(4)
+                        #self.isScanDone=False
+                        #self.th.yolo_t.is_always_detect=True
+                        #while(self.isScanDone==False):
+                            #continue
+                        #x=self.nowItem[0]["pos"][0]
+                        #y=self.nowItem[0]["pos"][1]
+                        #self.go_to_depth(x,y)
+                        self.run_suck()
+                        time.sleep(2)
+                        self.return_ori()
+                        print("AGV get!")
+                        self.tcpCliSock.send(str("yes").encode())
+                        print("done\n")
+                        self.isScanDone=False
+                        self.nowItem=[]
+                        time.sleep(4)
+                        waitFish=True
 
                     
-            except Exception as e:
-                self.tcpCliSock.send(str("no").encode())
-                self.isScanDone=False
-                self.nowItem=[]
-                print("stop during thread pool")
-                print(e)
+                except Exception as e:
+                    self.tcpCliSock.send(str("no").encode())
+                    self.isScanDone=False
+                    self.nowItem=[]
+                    print("stop during thread pool")
+                    print(e)
+            
+            else:
+                print("release")
+                self.free()
     
     def _set_user_set_pos(self): 
         try:
