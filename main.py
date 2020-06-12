@@ -485,25 +485,29 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         X = np.array([[u, v, 1.0]]).reshape(1,3)
 
 
-        M = np.array([[ 2.04310618e-04, -3.26572729e-01, 1.30104261e-18],
-                    [-3.32861745e-01, -4.29655952e-03, -4.33680869e-19],
-                    [ 3.76552632e+02, 2.44078479e+02, 1.00000000e+00]])
+        M = np.array([[ 3.68564350e-02, -3.29055785e-01, -1.51788304e-18],
+        [-3.54059036e-01, -4.73030558e-02, 2.60208521e-18],
+        [ 3.56735424e+02, 2.87496286e+02, 1.00000000e+00]])
 
 
         result = X.dot(M)
-        self.depth = self.th.get_depth(u, v)
+
+        #self.depth = self.th.get_depth(u, v)
         #we use fixed depth for now
+        #if(self.depth==0.0):
+        #    self.depth = self.th.get_depth(u, v)
+        #    print("trying to get depth but fail\n")
     
         self.device.move_to(211.9, 1.1, 172.64, 0.0, wait = True) 
        
         
-        depth =  self.depth*1000.0 - 65.0
-        depth = 172.64 - depth 
-        print("self depth")
-        print(self.depth)
-        if(self.depth!=0.0):
+        #depth =  self.depth*1000.0 - 65.0
+        #depth = 172.64 - depth 
+        #print("self depth")
+        #print(self.depth)
+        
             #self.device.move_to(x+20.0 ,y ,depth+10.0, 0.0 , wait = True) 
-            self.device.move_to(result[0][0]-2.5,result[0][1]+1.5,depth+5.0, 0.0 , wait = True) 
+        self.device.move_to(result[0][0]-2.5,result[0][1]+1.5,-91.0, 0.0 , wait = True) 
         
         
 
@@ -517,15 +521,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_Form):
         self.device.move_to(x, y, z+40, 0.0) 
         self.device.move_to(211.9, y, z+40, 0.0) 
 
-        self.device.move_to(211.9, 1.1, z+40, 0.0) 
+        self.device.move_to(211.9, 21.100004196166992, z+40, 0.0) 
 
-        self.device.move_to(211.9, 1.1, 172.64, 0.0) 
-        self.device.move_to(191.34018, 1.1, 172.64, 0.0)
+        self.device.move_to(211.9, 21.100004196166992, 172.64, 0.0) 
+        self.device.move_to(191.26025390625, 21.100004196166992, 172.6400146484375, 0.0)
 
         self.get_pos()
         
        
     def rotate_90(self):
+        self.device.move_to(191.34018, 1.1, 172.64001, 0.0)
         (x, y, z) = self.get_pos() 
  
         y = y- 40
